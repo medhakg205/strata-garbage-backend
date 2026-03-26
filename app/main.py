@@ -1,4 +1,5 @@
 import os
+from ai.predict import predict_image
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
@@ -29,6 +30,10 @@ async def create_report(
     with open(file.filename, "wb") as f:
         f.write(await file.read())
     
+    pred = predict_image(file.filename)
+
+    level_map = {0: "low", 1: "medium", 2: "high"}
+    garbage_level = level_map[pred]
     supabase.storage.from_("images").upload(path, open(file.filename, "rb"))
     image_url = supabase.storage.from_("images").get_public_url(path)["publicUrl"]
     
