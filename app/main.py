@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 from dotenv import load_dotenv
+from typing import List
 
 # --- LOCAL IMPORTS ---
 from models import ReportResponse, GarbageLevel
@@ -86,7 +87,47 @@ async def create_report(
         location={"lat": lat, "lng": lng},
         garbage_level=report["garbage_level"]
     )
+@app.get("/reports/", response_model=List[ReportResponse])
+async def get_all_reports(current_user=Depends(get_current_user)):
+    # 1. Role-based Access Control (RBAC)
+    # Checking if the user dict has the 'collector' role
+    if current_user.get("role") != "collector":
+        raise HTTPException(
+            status_code=403, 
+            detail="Access denied. Only collectors can view all reports."
+        )
 
+    # 2. Fetch reports from Supabase
+    # We select the fields requested in your teammate's screenshot
+    # 'location' in Supabase (PostGIS) usually returns as 'POINT(lng lat)'
+    resp = supabase.table("garbage_reports").select(
+        "id, location, garbage_level, priority_score"
+    ).execute()
+
+    if not resp.data:
+        return []
+
+    # 3. Format data to match the teammate's expected response format
+    formatted_reports = []
+    for report in resp.data:
+        # Simple parser for "POINT(lng lat)" string if returned as text
+        # If your RPC/SQL returns coordinates differently, adjust this part
+        loc_str = report["location"] 
+        # Example: "POINT(12.34 56.78)" -> [12.34, 56.78]
+        try:
+            coords = loc_str.replace("POINT(", "").replace(")", "").split()
+            lng, lat = float(coords[0]), float(coords[1])
+        except (ValueError, AttributeError):
+            lat, lng = 0.0, 0.0
+
+        formatted_reports.append({
+            "id": report["id"],
+            "location": {"lat": lat, "lng": lng},
+            "garbage_level": report["garbage_level"],
+            "priority_score": report["priority_score"]
+        })
+
+    return formatted_reports
 @app.get("/optimize-route/")
 async def optimize_route(current_user=Depends(get_current_user)):
     # Fix: current_user is a dict
