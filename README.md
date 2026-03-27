@@ -2,12 +2,10 @@
 
 **Live DB**: https://eclvmiklqhslpudxwwgw.supabase.co
 
-## Team Status
-| Role | Person | Status |
-|------|--------|--------|
-| DB/Infra | [Your Name] | ✅ Complete |
-| Backend | Medha | ⏳ Next |
-| Frontend/AI | AI Specialist | ⏳ Next |
+Deployed Backend Links: 
+https://strata-garbage-backend.onrender.com/docs
+https://strata-garbage-backend.onrender.com
+
 
 ## Setup
 1. Copy `.env.example` → `.env` + add Supabase keys
