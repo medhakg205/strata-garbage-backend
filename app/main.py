@@ -1,22 +1,18 @@
 import os
 import uuid
-from datetime import datetime
-from pathlib import Path
+# ... other imports ...
 
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from supabase import create_client, Client
-from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 from dotenv import load_dotenv
 from typing import List
 
-# --- LOCAL IMPORTS ---
-from models import ReportResponse, GarbageLevel
-from auth import get_current_user
-from utils import get_distance_matrix
+# --- LOCAL IMPORTS (Note the dots!) ---
+from .models import ReportResponse, GarbageLevel
+from .auth import get_current_user
+from .utils import get_distance_matrix
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(dotenv_path=BASE_DIR / ".env")
+# This handles both local .env and Render environment variables
+load_dotenv()
+
 
 app = FastAPI(title="Garbage Backend")
 
