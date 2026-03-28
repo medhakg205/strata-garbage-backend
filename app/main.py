@@ -52,7 +52,7 @@ def calculate_priority_score(report):
     except:
         return 1
 
-# ---------------- 1. CREATE REPORT (WITH DUPLICATE CHECK) ----------------
+# ---------------- 1. CREATE REPORT (WITH DUPLICATE CHECK) ---------------
 @app.post("/reports/", response_model=ReportResponse, status_code=201)
 async def create_report(
     lat: float = Form(...),
@@ -149,15 +149,51 @@ async def create_report(
     return ReportResponse(id=report["id"], priority_score=1, location={"lat": lat, "lng": lng}, garbage_level=report["garbage_level"])
 
 # ---------------- 2. OPTIMIZE ROUTE (GPS START + MATH) ----------------
-@app.get("/optimize-route/")
-async def optimize_route(lat: float = None, lng: float = None, current_user=Depends(get_current_user)):
-    if current_user.get("role") != "collector":
-        raise HTTPException(403, "Collector only")
 
-    resp = supabase.table("garbage_reports").select("*").eq("status", "pending").execute()
-    reports = resp.data
-    if not reports or len(reports) < 1:
-        return {"optimized_path": [], "message": "No pending reports"}
+@app.get("/optimize-route/")
+def optimize_route(lat: float, lng: float):
+    try:
+        # 1. Fetch all reports
+        response = supabase.table("reports").select("*").execute()
+        reports = response.data
+
+        if not reports:
+            return {
+                "total_spots": 0,
+                "optimized_path": []
+            }
+
+        # 2. Convert to usable format
+        points = []
+        for r in reports:
+            points.append({
+                "id": r["id"],
+                "coord": [r["location"]["lng"], r["location"]["lat"]],
+                "level": r.get("garbage_level", "medium"),
+            })
+
+        # 3. Assign score (priority logic)
+        def get_score(level):
+            if level == "high":
+                return 3
+            elif level == "medium":
+                return 2
+            return 1
+
+        for p in points:
+            p["score"] = get_score(p["level"])
+
+        # 4. Sort by priority (HIGH → LOW)
+        points.sort(key=lambda x: -x["score"])
+
+        return {
+            "total_spots": len(points),
+            "optimized_path": points
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
 
     # Map Coordinates
     report_ids = [r["id"] for r in reports]
