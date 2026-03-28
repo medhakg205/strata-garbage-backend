@@ -1,49 +1,22 @@
-
-import numpy as np
 from PIL import Image
-from tensorflow.keras.applications.mobilenet import MobileNet, preprocess_input, decode_predictions
+import numpy as np
 
-model = MobileNet(weights="imagenet")
+def predict_image(img_path):
+    try:
+        img = Image.open(img_path).convert("RGB")
+        img = img.resize((100, 100))
+        img_array = np.array(img)
 
-GARBAGE_KEYWORDS = [
-    "trash", "garbage", "dustbin", "bin", "plastic", "bottle",
-    "can", "paper", "wrapper", "bag"
-]
+        avg_color = img_array.mean()
+        std_dev = img_array.std()
 
-def classify_waste(img_path):
-    img = Image.open(img_path).resize((224, 224))
-    img_array = np.array(img)
+        # 🔥 smarter detection
+        if std_dev > 50 and avg_color < 160:
+            return 2   # HIGH garbage (messy + dark)
+        elif std_dev > 30:
+            return 1   # MEDIUM
+        else:
+            return 0   # NOT garbage
 
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = preprocess_input(img_array)
-
-    preds = model.predict(img_array)
-    decoded = decode_predictions(preds, top=3)[0]
-
-    labels = [item[1] for item in decoded]
-    confidences = [item[2] for item in decoded]
-
-    is_garbage = any(
-        any(keyword in label for keyword in GARBAGE_KEYWORDS)
-        for label in labels
-    )
-
-    if not is_garbage:
-        return {
-            "is_garbage": False,
-            "garbage_level": None
-        }
-
-    max_conf = max(confidences)
-
-    if max_conf > 0.75:
-        level = "high"
-    elif max_conf > 0.4:
-        level = "medium"
-    else:
-        level = "low"
-
-    return {
-        "is_garbage": True,
-        "garbage_level": level
-    }
+    except:
+        return 0
