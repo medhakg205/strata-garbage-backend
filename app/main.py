@@ -3,6 +3,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import List
 from ai.predict import classify_waste
+from ai.predict import predict_image 
+from app.utils import get_distance_matrix
 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -150,50 +152,76 @@ async def create_report(
 
 # ---------------- 2. OPTIMIZE ROUTE (GPS START + MATH) ----------------
 
+
+
 @app.get("/optimize-route/")
 def optimize_route(lat: float, lng: float):
     try:
-        # 1. Fetch all reports
         response = supabase.table("reports").select("*").execute()
         reports = response.data
 
         if not reports:
-            return {
-                "total_spots": 0,
-                "optimized_path": []
-            }
+            return {"total_spots": 0, "optimized_path": []}
 
-        # 2. Convert to usable format
-        points = []
+        # 🔹 Start point (truck location)
+        start = [lng, lat]
+
+        coords = [start]
+        enriched = []
+
         for r in reports:
-            points.append({
+            coord = [r["location"]["lng"], r["location"]["lat"]]
+
+            level = r.get("garbage_level", "medium")
+
+            score = 3 if level == "high" else 2 if level == "medium" else 1
+
+            coords.append(coord)
+
+            enriched.append({
                 "id": r["id"],
-                "coord": [r["location"]["lng"], r["location"]["lat"]],
-                "level": r.get("garbage_level", "medium"),
+                "coord": coord,
+                "level": level,
+                "score": score
             })
 
-        # 3. Assign score (priority logic)
-        def get_score(level):
-            if level == "high":
-                return 3
-            elif level == "medium":
-                return 2
-            return 1
+        # 🔹 Distance matrix
+        matrix = get_distance_matrix(coords)
 
-        for p in points:
-            p["score"] = get_score(p["level"])
+        # 🔹 Greedy optimization
+        visited = set()
+        path = []
+        current = 0  # start index
 
-        # 4. Sort by priority (HIGH → LOW)
-        points.sort(key=lambda x: -x["score"])
+        while len(visited) < len(enriched):
+            best = None
+            best_score = -999
+
+            for i, point in enumerate(enriched):
+                if i in visited:
+                    continue
+
+                distance = matrix[current][i + 1]
+
+                # 🔥 MAGIC FORMULA
+                priority_weight = point["score"] * 10
+                score = priority_weight - distance
+
+                if score > best_score:
+                    best_score = score
+                    best = i
+
+            visited.add(best)
+            path.append(enriched[best])
+            current = best + 1
 
         return {
-            "total_spots": len(points),
-            "optimized_path": points
+            "total_spots": len(path),
+            "optimized_path": path
         }
 
     except Exception as e:
         return {"error": str(e)}
-
 
     # Map Coordinates
     report_ids = [r["id"] for r in reports]
@@ -251,13 +279,41 @@ def optimize_route(lat: float, lng: float):
     return {"optimized_path": path, "total_spots": len(path)}
 
 # ---------------- 3. TASK COMPLETION ----------------
-@app.post("/reports/{report_id}/complete")
-async def complete_report(report_id: str, current_user=Depends(get_current_user)):
-    supabase.table("garbage_reports").update({
-        "status": "completed", 
-        "completed_at": datetime.now(timezone.utc).isoformat()
-    }).eq("id", report_id).execute()
-    return {"status": "cleared"}
+
+
+
+@app.post("/reports/")
+async def create_report(file: UploadFile, lat: float, lng: float):
+    try:
+        # 1. Save image temporarily
+        file_path = f"temp_{file.filename}"
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
+        # 2. AI prediction
+        prediction = predict_image(file_path)
+
+        # 3. Convert AI output → level
+        if prediction == 2:
+            level = "high"
+        elif prediction == 1:
+            level = "medium"
+        else:
+            # ❌ Not garbage → reject
+            return {"message": "Not garbage, report ignored"}
+
+        # 4. Save to DB
+        data = {
+            "location": {"lat": lat, "lng": lng},
+            "garbage_level": level
+        }
+
+        res = supabase.table("reports").insert(data).execute()
+
+        return res.data
+
+    except Exception as e:
+        return {"error": str(e)}
 
 # ---------------- 4. AI BRIDGE ----------------
 @app.patch("/internal/ai-update/{report_id}")
