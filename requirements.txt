@@ -8,7 +8,5 @@ python-multipart==0.0.12
 python-dotenv==1.0.1
 pytest==8.3.3
 
-# 🔥 ADD THESE (VERY IMPORTANT)
 Pillow
 numpy
-tensorflow
