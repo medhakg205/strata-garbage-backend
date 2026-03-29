@@ -3,17 +3,17 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from fastapi import FastAPI, File, UploadFile, Form, Depends, HTTPException, status
+from fastapi import FastAPI, File, UploadFile, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# OR-Tools
+# For OR-Tools in optimize_route
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
-# LOCAL IMPORTS
-from .models import ReportResponse
+# --- LOCAL IMPORTS ---
+from .models import ReportResponse, GarbageLevel
 from .auth import get_current_user
 from .utils import get_distance_matrix
 from .ai import predict_image
@@ -22,7 +22,7 @@ load_dotenv()
 
 app = FastAPI(title="Garbage Backend")
 
-# ✅ CORS
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,108 +31,84 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# ✅ Supabase init
+# --- SUPABASE INIT ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise Exception("❌ Missing Supabase environment variables")
-
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 # =========================================================
-# 🚀 CREATE REPORT (FIXED)
+# 🚀 CREATE REPORT
 # =========================================================
-@app.post("/reports/", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/reports/", response_model=ReportResponse, status_code=201)
 async def create_report(
-    lat: float = Form(...),   # ✅ FIX: explicitly Form
-    lng: float = Form(...),   # ✅ FIX: explicitly Form
+    lat: float = Form(...),
+    lng: float = Form(...),
     file: UploadFile = File(...),
     current_user=Depends(get_current_user)
 ):
-    try:
-        # 1. Validate file
-        if not file:
-            raise HTTPException(400, "File is required")
+    # 1. Read file
+    file_content = await file.read()
 
-        file_content = await file.read()
+    # 2. AI Prediction
+    garbage_level, ai_message = predict_image(file_content)
 
-        if not file_content:
-            raise HTTPException(400, "Empty file uploaded")
-
-        # 2. AI Prediction
-        garbage_level, ai_message = predict_image(file_content)
-
-        # 3. Not garbage case
-        if garbage_level is None:
-            return ReportResponse(
-                id="not-garbage",
-                priority_score=0,
-                location={"lat": lat, "lng": lng},
-                garbage_level="none",
-                message="Not garbage ❌"
-            )
-
-        # 4. Upload to Supabase Storage
-        file_ext = file.filename.split(".")[-1] if file.filename else "jpg"
-        storage_path = f"images/{uuid.uuid4()}.{file_ext}"
-
-        try:
-            supabase.storage.from_("images").upload(
-                path=storage_path,
-                file=file_content,
-                file_options={"content-type": file.content_type}
-            )
-        except Exception as e:
-            print("❌ Storage Error:", e)
-            raise HTTPException(500, f"Image upload failed: {str(e)}")
-
-        # 5. Get public URL
-        public_url_resp = supabase.storage.from_("images").get_public_url(storage_path)
-
-        image_url = (
-            public_url_resp
-            if isinstance(public_url_resp, str)
-            else public_url_resp.get("publicURL") or public_url_resp.get("public_url")
-        )
-
-        if not image_url:
-            raise HTTPException(500, "Failed to retrieve image URL")
-
-        # 6. Priority score mapping
-        score_map = {"high": 10, "medium": 5, "low": 1}
-        priority_score = score_map.get(garbage_level, 0)
-
-        # 7. Insert into DB
-        data = {
-            "user_id": current_user["id"],
-            "image_url": image_url,
-            "location": f"POINT({lng} {lat})",  # PostGIS
-            "garbage_level": garbage_level,
-            "status": "pending",
-            "priority_score": priority_score,
-            "reported_at": datetime.utcnow().isoformat()
-        }
-
-        resp = supabase.table("garbage_reports").insert(data).execute()
-
-        if not resp.data:
-            raise HTTPException(500, "Database insertion failed")
-
-        report = resp.data[0]
-
+    # 3. Handle Not Garbage
+    if garbage_level is None:
         return ReportResponse(
-            id=report["id"],
-            priority_score=report.get("priority_score", 0),
+            id="not-garbage",
+            priority_score=0,
             location={"lat": lat, "lng": lng},
-            garbage_level=report["garbage_level"]
+            garbage_level="none",
+            message="Not garbage ❌"
         )
 
-    except HTTPException:
-        raise
+    # 4. Upload to Supabase Storage
+    file_ext = file.filename.split(".")[-1]
+    storage_path = f"images/{uuid.uuid4()}.{file_ext}"
+
+    try:
+        supabase.storage.from_("images").upload(
+            path=storage_path,
+            file=file_content,
+            file_options={"content-type": file.content_type}
+        )
     except Exception as e:
-        print("❌ CREATE REPORT ERROR:", e)
-        raise HTTPException(500, f"Unexpected error: {str(e)}")
+        print(f"Storage Error: {e}")
+        raise HTTPException(500, f"Image upload failed: {str(e)}")
+
+    # Get Public URL
+    res = supabase.storage.from_("images").get_public_url(storage_path)
+    image_url = res if isinstance(res, str) else res.get("publicURL") or res.get("public_url")
+
+    # 5. Insert into DB
+    score_map = {"high": 10, "medium": 5, "low": 1}
+    priority_score = score_map.get(garbage_level, 0)
+
+    data = {
+        "user_id": current_user["id"],
+        "image_url": image_url,
+        "location": f"POINT({lng} {lat})",
+        "garbage_level": garbage_level,
+        "status": "pending",
+        "priority_score": priority_score,
+        "reported_at": datetime.utcnow().isoformat()
+    }
+
+    resp = supabase.table("garbage_reports").insert(data).execute()
+
+    if not resp.data:
+        raise HTTPException(500, "Database insertion failed")
+
+    report = resp.data[0]
+
+    return ReportResponse(
+        id=report["id"],
+        priority_score=report.get("priority_score", 0),
+        location={"lat": lat, "lng": lng},
+        garbage_level=report["garbage_level"]
+    )
 
 
 # =========================================================
@@ -143,7 +119,7 @@ async def get_all_reports(current_user=Depends(get_current_user)):
     if current_user.get("role") != "collector":
         raise HTTPException(
             status_code=403,
-            detail="Access denied. Only collectors can view reports."
+            detail="Access denied. Only collectors can view all reports."
         )
 
     resp = supabase.table("garbage_reports").select(
@@ -153,23 +129,25 @@ async def get_all_reports(current_user=Depends(get_current_user)):
     if not resp.data:
         return []
 
-    formatted = []
+    formatted_reports = []
 
     for report in resp.data:
+        loc_str = report["location"]
+
         try:
-            coords = report["location"].replace("POINT(", "").replace(")", "").split()
+            coords = loc_str.replace("POINT(", "").replace(")", "").split()
             lng, lat = float(coords[0]), float(coords[1])
-        except:
+        except (ValueError, AttributeError, IndexError):
             lat, lng = 0.0, 0.0
 
-        formatted.append({
+        formatted_reports.append({
             "id": report["id"],
             "location": {"lat": lat, "lng": lng},
             "garbage_level": report["garbage_level"],
             "priority_score": report["priority_score"]
         })
 
-    return formatted
+    return formatted_reports
 
 
 # =========================================================
@@ -231,4 +209,7 @@ async def optimize_route(current_user=Depends(get_current_user)):
         "optimized_path": path
     }).execute()
 
-    return {"path": path, "total_spots": len(path)}
+    return {
+        "path": path,
+        "total_spots": len(path)
+    }
