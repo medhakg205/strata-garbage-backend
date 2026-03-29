@@ -72,14 +72,16 @@ async def create_report(
     priority_score = score_map.get(garbage_level, 0)
 
     data = {
-        "user_id": current_user["id"],
-        "image_url": image_url,
-        "location": f"POINT({lng} {lat})",
-        "garbage_level": garbage_level,
-        "status": "pending",
-        "priority_score": priority_score,
-        "reported_at": datetime.utcnow().isoformat()
-    }
+    "user_id": current_user["id"],
+    "image_url": image_url,
+    "location": f"SRID=4326;POINT({lng} {lat})",  # try this
+    "lat": lat,   # ✅ ALWAYS store these
+    "lng": lng,
+    "garbage_level": garbage_level,
+    "status": "pending",
+    "priority_score": priority_score,
+    "reported_at": datetime.utcnow().isoformat()
+}
 
     try:
         resp = supabase.table("garbage_reports").insert(data).execute()
