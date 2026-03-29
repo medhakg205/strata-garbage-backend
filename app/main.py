@@ -48,13 +48,11 @@ async def create_report(
     file: UploadFile = File(...),
     current_user=Depends(get_current_user)
 ):
-    # 1. Read file
     file_content = await file.read()
 
-    # 2. AI Prediction
+    # 🤖 AI Prediction
     garbage_level, ai_message = predict_image(file_content)
 
-    # 3. Handle Not Garbage
     if garbage_level is None:
         return ReportResponse(
             id="not-garbage",
@@ -64,42 +62,87 @@ async def create_report(
             message="Not garbage ❌"
         )
 
-    # 🚨 TEMP FIX: SKIP SUPABASE STORAGE
     image_url = "test-url"
 
-    # 4. Insert into DB
-    score_map = {"high": 10, "medium": 5, "low": 1}
-    priority_score = score_map.get(garbage_level, 0)
+    # =========================================================
+    # 🔍 CHECK FOR EXISTING REPORT NEARBY
+    # =========================================================
+    RADIUS = 0.0005  # ~50 meters
 
-    data = {
-    "user_id": current_user["id"],
-    "image_url": image_url,
-    "location": f"SRID=4326;POINT({lng} {lat})",  # try this
-    "lat": lat,   # ✅ ALWAYS store these
-    "lng": lng,
-    "garbage_level": garbage_level,
-    "status": "pending",
-    "priority_score": priority_score,
-    "reported_at": datetime.utcnow().isoformat()
-}
+    existing = supabase.table("garbage_reports") \
+        .select("*") \
+        .gte("lat", lat - RADIUS) \
+        .lte("lat", lat + RADIUS) \
+        .gte("lng", lng - RADIUS) \
+        .lte("lng", lng + RADIUS) \
+        .neq("status", "completed") \
+        .execute()
 
-    try:
+    level_score = {"low": 1, "medium": 2, "high": 3}
+
+    # =========================================================
+    # 🔁 CASE 1: EXISTING REPORT → UPDATE
+    # =========================================================
+    if existing.data:
+        report = existing.data[0]
+
+        new_count = (report.get("complaint_count") or 1) + 1
+
+        # ⏱️ Time factor (use pending_minutes if available)
+        pending_minutes = report.get("pending_minutes") or 0
+        hours_since = pending_minutes / 60
+
+        priority_score = (
+            level_score.get(garbage_level, 0) * 3 +
+            new_count * 2 +
+            int(hours_since)
+        )
+
+        supabase.table("garbage_reports") \
+            .update({
+                "complaint_count": new_count,
+                "garbage_level": garbage_level,
+                "priority_score": priority_score
+            }) \
+            .eq("id", report["id"]) \
+            .execute()
+
+        report_id = report["id"]
+
+    # =========================================================
+    # 🆕 CASE 2: NEW REPORT → INSERT
+    # =========================================================
+    else:
+        priority_score = level_score.get(garbage_level, 0) * 3 + 2  # initial complaint_count = 1
+
+        data = {
+            "user_id": current_user["id"],
+            "image_url": image_url,
+            "location": f"SRID=4326;POINT({lng} {lat})",
+            "lat": lat,
+            "lng": lng,
+            "garbage_level": garbage_level,
+            "status": "pending",
+            "priority_score": priority_score,
+            "complaint_count": 1,
+            "reported_at": datetime.utcnow().isoformat()
+        }
+
         resp = supabase.table("garbage_reports").insert(data).execute()
-        print("DB RESPONSE:", resp)
-    except Exception as e:
-        print("DB ERROR:", e)
-        raise HTTPException(500, f"Database error: {str(e)}")
 
-    if not resp.data:
-        raise HTTPException(500, "Database insertion failed")
+        if not resp.data:
+            raise HTTPException(500, "Database insertion failed")
 
-    report = resp.data[0]
+        report_id = resp.data[0]["id"]
 
+    # =========================================================
+    # ✅ FINAL RESPONSE
+    # =========================================================
     return ReportResponse(
-        id=report["id"],
-        priority_score=report.get("priority_score", 0),
+        id=report_id,
+        priority_score=priority_score,
         location={"lat": lat, "lng": lng},
-        garbage_level=report["garbage_level"]
+        garbage_level=garbage_level
     )
 # =========================================================
 # 📄 GET ALL REPORTS
@@ -148,22 +191,53 @@ async def optimize_route(current_user=Depends(get_current_user)):
     if current_user.get("role") != "collector":
         raise HTTPException(403, "Collector only")
 
+    # =========================================================
+    # 🔄 FETCH ALL ACTIVE REPORTS
+    # =========================================================
     resp = supabase.table("garbage_reports") \
-        .select("id, location, priority_score") \
-        .gte("priority_score", 5) \
+        .select("*") \
+        .neq("status", "completed") \
         .execute()
 
-    reports = resp.data
+    if not resp.data:
+        return {"path": [], "message": "No reports"}
 
-    if not reports or len(reports) < 2:
-        return {"path": [], "message": "Insufficient reports"}
+    updated_reports = []
+    level_score = {"low": 1, "medium": 2, "high": 3}
 
-    coords_query = supabase.rpc(
-        "get_coords",
-        {"report_ids": [r["id"] for r in reports]}
-    ).execute()
+    # =========================================================
+    # 🔁 RECALCULATE PRIORITY (TIME-BASED)
+    # =========================================================
+    for r in resp.data:
+        pending_minutes = r.get("pending_minutes") or 0
+        hours_since = pending_minutes / 60
 
-    coords = [[row["lng"], row["lat"]] for row in coords_query.data]
+        priority = (
+            level_score.get(r["garbage_level"], 0) * 3 +
+            (r.get("complaint_count") or 1) * 2 +
+            int(hours_since)
+        )
+
+        supabase.table("garbage_reports") \
+            .update({"priority_score": priority}) \
+            .eq("id", r["id"]) \
+            .execute()
+
+        r["priority_score"] = priority
+        updated_reports.append(r)
+
+    # =========================================================
+    # 🔥 FILTER HIGH PRIORITY
+    # =========================================================
+    reports = [r for r in updated_reports if r["priority_score"] >= 5]
+
+    if len(reports) < 2:
+        return {"path": [], "message": "Insufficient high-priority reports"}
+
+    # =========================================================
+    # 📍 GET COORDS
+    # =========================================================
+    coords = [[r["lng"], r["lat"]] for r in reports]
 
     dist_matrix = get_distance_matrix(coords)
 
