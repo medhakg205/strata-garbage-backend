@@ -64,25 +64,10 @@ async def create_report(
             message="Not garbage ❌"
         )
 
-    # 4. Upload to Supabase Storage
-    file_ext = file.filename.split(".")[-1]
-    storage_path = f"images/{uuid.uuid4()}.{file_ext}"
+    # 🚨 TEMP FIX: SKIP SUPABASE STORAGE
+    image_url = "test-url"
 
-    try:
-        supabase.storage.from_("images").upload(
-            path=storage_path,
-            file=file_content,
-            file_options={"content-type": file.content_type}
-        )
-    except Exception as e:
-        print(f"Storage Error: {e}")
-        raise HTTPException(500, f"Image upload failed: {str(e)}")
-
-    # Get Public URL
-    res = supabase.storage.from_("images").get_public_url(storage_path)
-    image_url = res if isinstance(res, str) else res.get("publicURL") or res.get("public_url")
-
-    # 5. Insert into DB
+    # 4. Insert into DB
     score_map = {"high": 10, "medium": 5, "low": 1}
     priority_score = score_map.get(garbage_level, 0)
 
@@ -96,7 +81,12 @@ async def create_report(
         "reported_at": datetime.utcnow().isoformat()
     }
 
-    resp = supabase.table("garbage_reports").insert(data).execute()
+    try:
+        resp = supabase.table("garbage_reports").insert(data).execute()
+        print("DB RESPONSE:", resp)
+    except Exception as e:
+        print("DB ERROR:", e)
+        raise HTTPException(500, f"Database error: {str(e)}")
 
     if not resp.data:
         raise HTTPException(500, "Database insertion failed")
@@ -109,8 +99,6 @@ async def create_report(
         location={"lat": lat, "lng": lng},
         garbage_level=report["garbage_level"]
     )
-
-
 # =========================================================
 # 📄 GET ALL REPORTS
 # =========================================================
