@@ -188,9 +188,10 @@ async def get_all_reports(current_user=Depends(get_current_user)):
 # =========================================================
 @app.get("/optimize-route/")
 async def optimize_route(current_user=Depends(get_current_user)):
+    print(current_user)
     if current_user.get("role") != "collector":
         raise HTTPException(403, "Collector only")
-
+    
     # =========================================================
     # 🔄 FETCH ALL ACTIVE REPORTS
     # =========================================================
