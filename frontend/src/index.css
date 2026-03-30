@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .antonio {
+    font-family: 'Antonio', sans-serif;
+  }
+  .archivo {
+    font-family: 'Archivo Narrow', sans-serif;
+  }
+}
+
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #fcf8f8; }
+::-webkit-scrollbar-thumb { background: #006b2c; }
+.glass-header { backdrop-filter: blur(20px); }
+.no-radius { border-radius: 0 !important; }
+
+/* -------------------------------
+   Data Grids (Authority) Map Overrides
+   ------------------------------- */
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  margin-top: 2rem;
+}
+
+.map-container iframe {
+  border: none;
+  width: 100%;
+  border-radius: 12px;
+  filter: invert(90%) hue-rotate(180deg) brightness(85%) contrast(85%);
+  transition: all 0.3s ease;
+}
+
+/* Leaflet map styles map height needs */
+.leaflet-container {
+  height: 400px;
+  width: 100%;
+}
+
+.map-container .leaflet-container {
+  border-radius: 12px;
+  z-index: 1; /* Keep map below modals/toasts */
+}
+
+/* Give leaflet map a dark mode filter */
+.leaflet-layer,
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out,
+.leaflet-control-attribution {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}

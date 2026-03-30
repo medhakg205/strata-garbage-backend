@@ -1,0 +1,193 @@
+/* 
+  LANDING PAGE - AWWWARDS SPECIFIC STYLES 
+  "Civic-tech futuristic, impact-driven"
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Archivo+Narrow:wght@500&display=swap');
+
+:root {
+  --green: #16a34a;
+  --blue: #2563eb;
+  --black: #0b0b0b;
+  --white: #ffffff;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--black);
+  color: var(--white);
+  font-family: 'Archivo Narrow', sans-serif;
+  overflow-x: hidden;
+  /* lenis recommended */
+  overscroll-behavior: none;
+}
+
+/* THE SCROLLYTELLING ENGINE */
+.clean-engine-track {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ambient-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.1);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(40px) saturate(1.3);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.foreground-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 2;
+  /* Dual-Canvas Mask Image */
+  mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+  pointer-events: none;
+}
+
+/* HERO POST-PROCESS */
+.hero-content {
+  position: absolute;
+  z-index: 3;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  padding: 3rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+h1.hero-title, .cinematic-title {
+  font-family: 'Antonio', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -2px;
+  line-height: 0.85;
+  font-size: clamp(3rem, 10vw, 5.5rem);
+  margin: 0;
+  color: var(--white);
+  text-shadow: 0 4px 15px rgba(0,0,0,0.6);
+}
+
+.hero-subtitle {
+  font-weight: 500;
+  font-size: 1.25rem;
+  max-width: 600px;
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.primary-cta {
+  background: var(--green);
+  color: var(--white);
+  border: none;
+  padding: 1rem 2.5rem;
+  font-family: 'Antonio', sans-serif;
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.primary-cta:hover { background: #158a3f; transform: translateY(-2px); }
+
+.secondary-cta {
+  background: transparent;
+  color: var(--white);
+  border: 1px solid var(--white);
+  padding: 1rem 2.5rem;
+  font-family: 'Antonio', sans-serif;
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.secondary-cta:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+
+/* CONTENT UX */
+.info-section {
+  padding: 8rem 2rem;
+  background: var(--black);
+  position: relative;
+  z-index: 10;
+}
+
+.grid-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.grid-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  padding: 3rem;
+  border-radius: 20px;
+  transition: 0.4s ease;
+}
+.grid-card:hover { background: rgba(255,255,255,0.08); }
+.grid-card h2 { font-family: 'Antonio', sans-serif; font-size: 2.5rem; margin-top: 1.5rem; }
+
+.impact-banner {
+  height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(var(--black), #051410), url('https://picsum.photos/1920/1080');
+  background-size: cover;
+  background-blend-mode: multiply;
+  background-attachment: fixed;
+}
+
+.p4-impact {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.stat-card h3 { font-family: 'Antonio', sans-serif; font-size: 5rem; color: var(--blue); margin: 0; }
+.stat-card p { font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
+
+.footer-layout {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 5rem 2rem;
+  background: #000;
+  max-width: 1200px;
+  margin: 0 auto;
+  gap: 2rem;
+}
+
+.footer-layout h4 { font-family: 'Antonio', sans-serif; font-size: 1.5rem; color: #666; }
+.footer-link { display: block; color: var(--white); cursor: pointer; text-decoration: none; margin-bottom: 0.5rem; opacity: 0.7; }
+.footer-link:hover { opacity: 1; color: var(--green); }
