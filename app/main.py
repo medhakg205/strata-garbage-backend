@@ -1,5 +1,4 @@
 import os
-import uuid
 from datetime import datetime
 from typing import List
 
@@ -8,16 +7,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# For OR-Tools in optimize_route
+# OR-Tools for route optimization
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
 # --- LOCAL IMPORTS ---
-from .models import ReportResponse, GarbageLevel
+from .models import ReportResponse
 from .auth import get_current_user
 from .utils import get_distance_matrix
 from .ai import predict_image
 
+# Load environment variables
 load_dotenv()
 
 app = FastAPI(title="Garbage Backend")
@@ -31,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# --- SUPABASE INIT ---
+# --- SUPABASE CLIENT ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
@@ -50,8 +50,8 @@ async def create_report(
 ):
     file_content = await file.read()
 
-    # 🤖 AI Prediction
-    garbage_level, ai_message = predict_image(file_content)
+    # AI Prediction
+    garbage_level, _ = predict_image(file_content)
 
     if garbage_level is None:
         return ReportResponse(
@@ -64,11 +64,8 @@ async def create_report(
 
     image_url = "test-url"
 
-    # =========================================================
-    # 🔍 CHECK FOR EXISTING REPORT NEARBY
-    # =========================================================
-    RADIUS = 0.0005  # ~50 meters
-
+    # Check for existing nearby reports (~50m radius)
+    RADIUS = 0.0005
     existing = supabase.table("garbage_reports") \
         .select("*") \
         .gte("lat", lat - RADIUS) \
@@ -80,15 +77,10 @@ async def create_report(
 
     level_score = {"low": 1, "medium": 2, "high": 3}
 
-    # =========================================================
-    # 🔁 CASE 1: EXISTING REPORT → UPDATE
-    # =========================================================
+    # Case 1: Existing report → UPDATE
     if existing.data:
         report = existing.data[0]
-
-        new_count = (report.get("complaint_count") or 1) + 1
-
-        # ⏱️ Time factor (use pending_minutes if available)
+        new_count = (report.get("complaint_frequency") or 1) + 1
         pending_minutes = report.get("pending_minutes") or 0
         hours_since = pending_minutes / 60
 
@@ -100,7 +92,7 @@ async def create_report(
 
         supabase.table("garbage_reports") \
             .update({
-                "complaint_count": new_count,
+                "complaint_frequency": new_count,
                 "garbage_level": garbage_level,
                 "priority_score": priority_score
             }) \
@@ -109,12 +101,9 @@ async def create_report(
 
         report_id = report["id"]
 
-    # =========================================================
-    # 🆕 CASE 2: NEW REPORT → INSERT
-    # =========================================================
+    # Case 2: New report → INSERT
     else:
-        priority_score = level_score.get(garbage_level, 0) * 3 + 2  # initial complaint_count = 1
-
+        priority_score = level_score.get(garbage_level, 0) * 3 + 2
         data = {
             "user_id": current_user["id"],
             "image_url": image_url,
@@ -124,36 +113,31 @@ async def create_report(
             "garbage_level": garbage_level,
             "status": "pending",
             "priority_score": priority_score,
-            "complaint_count": 1,
+            "complaint_frequency": 1,
             "reported_at": datetime.utcnow().isoformat()
         }
 
         resp = supabase.table("garbage_reports").insert(data).execute()
-
         if not resp.data:
             raise HTTPException(500, "Database insertion failed")
 
         report_id = resp.data[0]["id"]
 
-    # =========================================================
-    # ✅ FINAL RESPONSE
-    # =========================================================
     return ReportResponse(
         id=report_id,
         priority_score=priority_score,
         location={"lat": lat, "lng": lng},
         garbage_level=garbage_level
     )
+
+
 # =========================================================
-# 📄 GET ALL REPORTS
+# 📄 GET ALL REPORTS (Collector Only)
 # =========================================================
 @app.get("/reports/", response_model=List[ReportResponse])
 async def get_all_reports(current_user=Depends(get_current_user)):
     if current_user.get("role") != "collector":
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied. Only collectors can view all reports."
-        )
+        raise HTTPException(403, "Access denied. Only collectors can view all reports.")
 
     resp = supabase.table("garbage_reports").select(
         "id, location, garbage_level, priority_score"
@@ -163,14 +147,12 @@ async def get_all_reports(current_user=Depends(get_current_user)):
         return []
 
     formatted_reports = []
-
     for report in resp.data:
         loc_str = report["location"]
-
         try:
             coords = loc_str.replace("POINT(", "").replace(")", "").split()
             lng, lat = float(coords[0]), float(coords[1])
-        except (ValueError, AttributeError, IndexError):
+        except Exception:
             lat, lng = 0.0, 0.0
 
         formatted_reports.append({
@@ -188,11 +170,9 @@ async def get_all_reports(current_user=Depends(get_current_user)):
 # =========================================================
 @app.get("/optimize-route/")
 async def optimize_route(current_user=Depends(get_current_user)):
-    # ✅ Collector-only access
     if current_user.get("role") != "collector":
         raise HTTPException(403, "Collector only")
-    
-    # 🔄 Fetch all active reports
+
     resp = supabase.table("garbage_reports") \
         .select("*") \
         .neq("status", "completed") \
@@ -204,12 +184,10 @@ async def optimize_route(current_user=Depends(get_current_user)):
     updated_reports = []
     level_score = {"low": 1, "medium": 2, "high": 3}
 
-    # 🔁 Recalculate priority and update
+    # Recalculate priority
     for r in resp.data:
         pending_minutes = r.get("pending_minutes") or 0
         hours_since = pending_minutes / 60
-
-        # Use correct column name
         complaint_count = r.get("complaint_frequency") or 1
 
         priority = (
@@ -218,7 +196,6 @@ async def optimize_route(current_user=Depends(get_current_user)):
             int(hours_since)
         )
 
-        # Update DB priority
         supabase.table("garbage_reports") \
             .update({"priority_score": priority}) \
             .eq("id", r["id"]) \
@@ -227,13 +204,13 @@ async def optimize_route(current_user=Depends(get_current_user)):
         r["priority_score"] = priority
         updated_reports.append(r)
 
-    # 🔥 Filter high-priority reports
+    # Filter high-priority reports
     reports = [r for r in updated_reports if r["priority_score"] >= 5]
 
     if len(reports) < 2:
         return {"path": [], "message": "Insufficient high-priority reports"}
 
-    # 📍 Get coordinates — filter out any missing lat/lng
+    # Get valid coordinates
     coords = []
     report_ids = []
     for r in reports:
@@ -264,7 +241,6 @@ async def optimize_route(current_user=Depends(get_current_user)):
     solution = routing.SolveWithParameters(params)
 
     path = []
-
     if solution:
         idx = routing.Start(0)
         while not routing.IsEnd(idx):
@@ -273,69 +249,11 @@ async def optimize_route(current_user=Depends(get_current_user)):
     else:
         path = coords
 
-    # Ensure route insertion uses a JSON-compatible array
+    # Insert route into DB
     supabase.table("routes").insert({
         "collector_id": current_user["id"],
         "report_ids": report_ids,
         "optimized_path": path
     }).execute()
 
-    return {
-        "path": path,
-        "total_spots": len(path)
-    }
-
-        r["priority_score"] = priority
-        updated_reports.append(r)
-
-    # =========================================================
-    # 🔥 FILTER HIGH PRIORITY
-    # =========================================================
-    reports = [r for r in updated_reports if r["priority_score"] >= 5]
-
-    if len(reports) < 2:
-        return {"path": [], "message": "Insufficient high-priority reports"}
-
-    # =========================================================
-    # 📍 GET COORDS
-    # =========================================================
-    coords = [[r["lng"], r["lat"]] for r in reports]
-
-    dist_matrix = get_distance_matrix(coords)
-
-    manager = pywrapcp.RoutingIndexManager(len(coords), 1, 0)
-    routing = pywrapcp.RoutingModel(manager)
-
-    def dist_cb(from_idx, to_idx):
-        return int(
-            dist_matrix[manager.IndexToNode(from_idx)][manager.IndexToNode(to_idx)] * 1000
-        )
-
-    transit_cb = routing.RegisterTransitCallback(dist_cb)
-    routing.SetArcCostEvaluatorOfAllVehicles(transit_cb)
-
-    params = pywrapcp.DefaultRoutingSearchParameters()
-    params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
-
-    solution = routing.SolveWithParameters(params)
-
-    path = []
-
-    if solution:
-        idx = routing.Start(0)
-        while not routing.IsEnd(idx):
-            path.append(coords[manager.IndexToNode(idx)])
-            idx = solution.Value(routing.NextVar(idx))
-    else:
-        path = coords
-
-    supabase.table("routes").insert({
-        "collector_id": current_user["id"],
-        "report_ids": [r["id"] for r in reports],
-        "optimized_path": path
-    }).execute()
-
-    return {
-        "path": path,
-        "total_spots": len(path)
-    }
+    return {"path": path, "total_spots": len(path)}
