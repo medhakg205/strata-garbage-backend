@@ -188,13 +188,11 @@ async def get_all_reports(current_user=Depends(get_current_user)):
 # =========================================================
 @app.get("/optimize-route/")
 async def optimize_route(current_user=Depends(get_current_user)):
-    print(current_user)
+    # ✅ Collector-only access
     if current_user.get("role") != "collector":
         raise HTTPException(403, "Collector only")
     
-    # =========================================================
-    # 🔄 FETCH ALL ACTIVE REPORTS
-    # =========================================================
+    # 🔄 Fetch all active reports
     resp = supabase.table("garbage_reports") \
         .select("*") \
         .neq("status", "completed") \
@@ -206,23 +204,86 @@ async def optimize_route(current_user=Depends(get_current_user)):
     updated_reports = []
     level_score = {"low": 1, "medium": 2, "high": 3}
 
-    # =========================================================
-    # 🔁 RECALCULATE PRIORITY (TIME-BASED)
-    # =========================================================
+    # 🔁 Recalculate priority and update
     for r in resp.data:
         pending_minutes = r.get("pending_minutes") or 0
         hours_since = pending_minutes / 60
 
+        # Use correct column name
+        complaint_count = r.get("complaint_frequency") or 1
+
         priority = (
-            level_score.get(r["garbage_level"], 0) * 3 +
-            (r.get("complaint_count") or 1) * 2 +
+            level_score.get(r.get("garbage_level"), 0) * 3 +
+            complaint_count * 2 +
             int(hours_since)
         )
 
+        # Update DB priority
         supabase.table("garbage_reports") \
             .update({"priority_score": priority}) \
             .eq("id", r["id"]) \
             .execute()
+
+        r["priority_score"] = priority
+        updated_reports.append(r)
+
+    # 🔥 Filter high-priority reports
+    reports = [r for r in updated_reports if r["priority_score"] >= 5]
+
+    if len(reports) < 2:
+        return {"path": [], "message": "Insufficient high-priority reports"}
+
+    # 📍 Get coordinates — filter out any missing lat/lng
+    coords = []
+    report_ids = []
+    for r in reports:
+        lat = r.get("lat")
+        lng = r.get("lng")
+        if lat is None or lng is None:
+            continue
+        coords.append([lng, lat])
+        report_ids.append(r["id"])
+
+    if len(coords) < 2:
+        return {"path": [], "message": "Insufficient valid coordinates"}
+
+    dist_matrix = get_distance_matrix(coords)
+
+    manager = pywrapcp.RoutingIndexManager(len(coords), 1, 0)
+    routing = pywrapcp.RoutingModel(manager)
+
+    def dist_cb(from_idx, to_idx):
+        return int(dist_matrix[manager.IndexToNode(from_idx)][manager.IndexToNode(to_idx)] * 1000)
+
+    transit_cb = routing.RegisterTransitCallback(dist_cb)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_cb)
+
+    params = pywrapcp.DefaultRoutingSearchParameters()
+    params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+
+    solution = routing.SolveWithParameters(params)
+
+    path = []
+
+    if solution:
+        idx = routing.Start(0)
+        while not routing.IsEnd(idx):
+            path.append(coords[manager.IndexToNode(idx)])
+            idx = solution.Value(routing.NextVar(idx))
+    else:
+        path = coords
+
+    # Ensure route insertion uses a JSON-compatible array
+    supabase.table("routes").insert({
+        "collector_id": current_user["id"],
+        "report_ids": report_ids,
+        "optimized_path": path
+    }).execute()
+
+    return {
+        "path": path,
+        "total_spots": len(path)
+    }
 
         r["priority_score"] = priority
         updated_reports.append(r)
