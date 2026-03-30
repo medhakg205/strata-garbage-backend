@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>STRATA GARBAGE | HIGH-PERFORMANCE CIVIC INFRASTRUCTURE</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&amp;family=Archivo+Narrow:wght@500;600&amp;family=Space+Grotesk:wght@700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-dim": "#dcd9d9",
+              "tertiary-fixed-dim": "#c9c6c5",
+              "on-secondary-fixed-variant": "#003ea8",
+              "outline-variant": "#bdcaba",
+              "primary-container": "#00873a",
+              "on-primary-fixed-variant": "#005320",
+              "tertiary": "#5d5c5b",
+              "surface-container-highest": "#e5e2e1",
+              "on-primary": "#ffffff",
+              "on-primary-fixed": "#002109",
+              "surface-bright": "#fcf8f8",
+              "secondary-fixed-dim": "#b4c5ff",
+              "primary-fixed": "#7ffc97",
+              "on-tertiary-fixed-variant": "#474646",
+              "surface-container": "#f0edec",
+              "surface-container-low": "#f6f3f2",
+              "surface-tint": "#006e2d",
+              "secondary-container": "#316bf3",
+              "on-secondary-fixed": "#00174b",
+              "on-surface": "#1c1b1b",
+              "background": "#fcf8f8",
+              "on-error": "#ffffff",
+              "outline": "#6e7b6c",
+              "secondary-fixed": "#dbe1ff",
+              "surface": "#fcf8f8",
+              "on-tertiary": "#ffffff",
+              "on-background": "#1c1b1b",
+              "on-error-container": "#93000a",
+              "on-secondary": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "on-tertiary-fixed": "#1c1b1b",
+              "primary-fixed-dim": "#62df7d",
+              "inverse-surface": "#313030",
+              "inverse-on-surface": "#f3f0ef",
+              "on-primary-container": "#f7fff2",
+              "on-tertiary-container": "#f7feff",
+              "secondary": "#0051d5",
+              "primary": "#006b2c",
+              "tertiary-container": "#767474",
+              "tertiary-fixed": "#e5e2e1",
+              "surface-variant": "#e5e2e1",
+              "error-container": "#ffdad6",
+              "inverse-primary": "#62df7d",
+              "error": "#ba1a1a",
+              "on-surface-variant": "#3e4a3d",
+              "on-secondary-container": "#fefcff",
+              "surface-container-high": "#ebe7e7"
+            },
+            fontFamily: {
+              "headline": ["Antonio", "Space Grotesk", "sans-serif"],
+              "body": ["Archivo Narrow", "Inter", "sans-serif"],
+              "label": ["Archivo Narrow", "Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0px", "lg": "0px", "xl": "0px", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .antonio { font-family: 'Antonio', sans-serif; }
+        .archivo { font-family: 'Archivo Narrow', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #fcf8f8; }
+        ::-webkit-scrollbar-thumb { background: #006b2c; }
+        .glass-header { backdrop-filter: blur(20px); }
+        .no-radius { border-radius: 0 !important; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface archivo selection:bg-primary selection:text-white">
+<!-- TopAppBar Component -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
+<div class="flex justify-between items-center px-8 py-4 max-w-[1440px] mx-auto">
+<div class="text-2xl font-bold tracking-tighter uppercase text-black dark:text-white antonio">
+                STRATA GARBAGE
+            </div>
+<div class="hidden md:flex items-center gap-12">
+<a class="text-green-600 dark:text-green-500 font-bold border-b-2 border-green-600 transition-colors duration-300 antonio uppercase text-sm tracking-wider" href="#">Systems</a>
+<a class="text-black/60 dark:text-white/60 font-medium hover:text-green-600 dark:hover:text-green-400 transition-colors duration-300 antonio uppercase text-sm tracking-wider" href="#">Impact</a>
+<a class="text-black/60 dark:text-white/60 font-medium hover:text-green-600 dark:hover:text-green-400 transition-colors duration-300 antonio uppercase text-sm tracking-wider" href="#">Analytics</a>
+<a class="text-black/60 dark:text-white/60 font-medium hover:text-green-600 dark:hover:text-green-400 transition-colors duration-300 antonio uppercase text-sm tracking-wider" href="#">Network</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2 border border-black/10 dark:border-white/10 antonio uppercase text-xs font-bold hover:bg-black hover:text-white transition-all active:scale-95">
+                    Dashboard
+                </button>
+<button class="px-6 py-2 bg-primary text-on-primary antonio uppercase text-xs font-bold hover:bg-primary-container transition-all active:scale-95">
+                    Report Waste
+                </button>
+</div>
+</div>
+</nav>
+<main>
+<!-- Section 1: Hero (Monolithic Scrollytelling Simulation) -->
+<section class="relative h-screen flex items-center justify-center overflow-hidden bg-surface">
+<!-- Background Layer (Ambient) -->
+<div class="absolute inset-0 z-0">
+<img class="w-full h-full object-cover opacity-40 grayscale blur-xl" data-alt="Ultra high-definition cinematic view of a futuristic clean city park at sunrise with soft atmospheric mist and sharp architectural lines" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9qATcgFRswRSuAoYq3ZlTsW7nf6loyF6qla5wz3iK8JTnoK5ZLsQEtmgvyG7V0PyqNjz_RVXubn0LAa33EhfZpLYjvqmsMMkhVjgBeNDD7qcmjpv-2yCMqJvdE6P80jnB4fnV4oYz5bQjLFw3UzRwgqgo6dxqzLJ6189sotCG61R6W_y2kVHcvDQdxX1lZwN2M3RyXsosdKbq4vg0rGG1LYQKf1M7EtDlKqbripQrQvSwMgKpHxj4JaqxUgPUca49G-Lw7G-Rz_0"/>
+</div>
+<div class="relative z-10 text-center px-4 max-w-5xl">
+<p class="text-primary font-bold tracking-[0.4em] mb-4 text-xs antonio uppercase">Civic Intelligence Layer 01</p>
+<h1 class="text-7xl md:text-9xl antonio font-bold leading-[0.85] tracking-[-0.05em] uppercase mb-8">
+                    CLEAN CITY.<br/>SMART FUTURE.
+                </h1>
+<p class="text-xl md:text-2xl max-w-2xl mx-auto mb-10 text-on-surface-variant font-medium">
+                    AI-powered waste detection and reporting system designed for high-performance urban maintenance.
+                </p>
+<div class="flex flex-col md:flex-row items-center justify-center gap-6">
+<button class="bg-primary text-white px-12 py-5 text-xl antonio uppercase font-bold hover:bg-primary-container transition-colors w-full md:w-auto">
+                        Report Waste
+                    </button>
+<button class="border border-outline-variant text-on-surface px-12 py-5 text-xl antonio uppercase font-bold hover:bg-surface-container transition-colors w-full md:w-auto">
+                        View Network
+                    </button>
+</div>
+</div>
+<!-- Scroll Indicator -->
+<div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 opacity-50">
+<span class="text-[10px] antonio uppercase tracking-widest">Scroll to Deploy</span>
+<div class="w-px h-16 bg-primary animate-pulse"></div>
+</div>
+</section>
+<!-- Section 2: Report Waste (Functional Shell) -->
+<section class="bg-surface-container-low py-32 px-8">
+<div class="max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+<div class="sticky top-32">
+<span class="text-primary font-bold antonio uppercase text-xs tracking-widest mb-4 block">Deployment Stage 01</span>
+<h2 class="text-6xl antonio font-bold uppercase leading-none mb-8">Immediate<br/>Reporting Hub</h2>
+<p class="text-xl text-on-surface-variant mb-12 max-w-md">Our neural network identifies waste types in milliseconds, prioritizing critical sanitation alerts for municipal rapid-response teams.</p>
+<div class="space-y-6">
+<div class="flex items-center gap-6 p-6 bg-surface-container-highest">
+<span class="material-symbols-outlined text-primary text-4xl">add_a_photo</span>
+<div>
+<h4 class="antonio font-bold uppercase">Visual Capture</h4>
+<p class="text-sm opacity-70">Automatic categorization via computer vision.</p>
+</div>
+</div>
+<div class="flex items-center gap-6 p-6 bg-surface-container-highest">
+<span class="material-symbols-outlined text-secondary text-4xl">location_on</span>
+<div>
+<h4 class="antonio font-bold uppercase">Geospatial Tagging</h4>
+<p class="text-sm opacity-70">Precise GPS coordinates for infrastructure routing.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white p-12 shadow-2xl">
+<div class="border-2 border-dashed border-outline-variant h-80 flex flex-col items-center justify-center text-center p-8 mb-8 hover:border-primary transition-colors cursor-pointer bg-surface-bright">
+<span class="material-symbols-outlined text-6xl text-outline mb-4">cloud_upload</span>
+<h3 class="antonio font-bold uppercase text-2xl">Upload Visual Data</h3>
+<p class="text-sm text-on-surface-variant mt-2">Drag and drop high-resolution imagery or select file</p>
+</div>
+<form class="space-y-8">
+<div>
+<label class="block text-[10px] antonio font-bold uppercase text-primary mb-2">Location Context</label>
+<input class="w-full bg-surface-container-low border-b-2 border-outline-variant focus:border-primary px-4 py-4 focus:ring-0 transition-all outline-none" placeholder="Detecting current coordinates..." type="text"/>
+</div>
+<div>
+<label class="block text-[10px] antonio font-bold uppercase text-primary mb-2">Report Description</label>
+<textarea class="w-full bg-surface-container-low border-b-2 border-outline-variant focus:border-primary px-4 py-4 focus:ring-0 transition-all outline-none" placeholder="Additional metadata for waste classification..." rows="3"></textarea>
+</div>
+<button class="w-full bg-black text-white py-6 antonio font-bold uppercase text-xl hover:bg-primary transition-all active:scale-95">
+                            Submit to Strata Network
+                        </button>
+</form>
+</div>
+</div>
+</section>
+<!-- Section 3: How It Works (Linear Flow) -->
+<section class="py-32 px-8 bg-surface">
+<div class="max-w-[1440px] mx-auto">
+<div class="flex flex-col md:flex-row justify-between items-end mb-24 gap-8">
+<h2 class="text-7xl antonio font-bold uppercase leading-[0.85] tracking-tighter">The System<br/>Process</h2>
+<p class="max-w-xs text-sm font-semibold uppercase opacity-60">Architectural breakdown of real-time waste management logistics and AI verification loops.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-outline-variant/20">
+<div class="bg-surface p-10 hover:bg-surface-container-low transition-colors group">
+<span class="text-5xl font-bold antonio text-primary/20 group-hover:text-primary transition-colors">01</span>
+<h3 class="text-2xl antonio font-bold uppercase mt-8 mb-4">Upload Image</h3>
+<p class="text-on-surface-variant leading-relaxed">High-fidelity visual intake via citizen or autonomous drone reporting modules.</p>
+</div>
+<div class="bg-surface p-10 hover:bg-surface-container-low transition-colors group">
+<span class="text-5xl font-bold antonio text-primary/20 group-hover:text-primary transition-colors">02</span>
+<h3 class="text-2xl antonio font-bold uppercase mt-8 mb-4">AI Detects Waste</h3>
+<p class="text-on-surface-variant leading-relaxed">Neural analysis identifies volume, material type, and chemical hazard levels.</p>
+</div>
+<div class="bg-surface p-10 hover:bg-surface-container-low transition-colors group">
+<span class="text-5xl font-bold antonio text-primary/20 group-hover:text-primary transition-colors">03</span>
+<h3 class="text-2xl antonio font-bold uppercase mt-8 mb-4">Assign Priority</h3>
+<p class="text-on-surface-variant leading-relaxed">Algorithmic sorting based on environmental impact and urban traffic density.</p>
+</div>
+<div class="bg-surface p-10 hover:bg-surface-container-low transition-colors group">
+<span class="text-5xl font-bold antonio text-primary/20 group-hover:text-primary transition-colors">04</span>
+<h3 class="text-2xl antonio font-bold uppercase mt-8 mb-4">Notify Authority</h3>
+<p class="text-on-surface-variant leading-relaxed">Direct dispatching to the nearest available high-performance recovery unit.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 4: Smart Dashboard (Bento Grid) -->
+<section class="bg-stone-900 text-white py-32 px-8 overflow-hidden">
+<div class="max-w-[1440px] mx-auto">
+<div class="mb-20">
+<span class="text-primary font-bold antonio uppercase text-xs tracking-[0.4em] mb-4 block">Data Visualization Core</span>
+<h2 class="text-7xl antonio font-bold uppercase tracking-tighter">Live Network<br/>Analytics</h2>
+</div>
+<div class="grid grid-cols-12 gap-6 h-[800px]">
+<div class="col-span-12 lg:col-span-8 bg-zinc-800 p-8 relative overflow-hidden">
+<div class="absolute inset-0 opacity-40">
+<img class="w-full h-full object-cover grayscale" data-alt="Digital night map of a metropolitan area with glowing green and blue data points and connecting network lines" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRcJtvt7WI2FQdyK9z83u4e2vVaicnPK75LUD8nz3hx0_T6xHyONEO7bY7Ol5q1oyJlKHU-kHUvE1K0eKldkcVCPDioUbC2NWDsMG4wqdSNm3NP718ZzytdKKu6sl4sEHNXqcga2vReWT4C5QFvsZx7X_AhJq4zgnMr_sXWHILTPhEJAsiQLlV61dSPPAKIoTY2pjTgv0u-xwLT0bQi6SbAkiNUh-zjR_mZ4COzmALHvGgopRoetZeUyUiwm_4PEJk9wPAcej5gsg"/>
+</div>
+<div class="relative z-10">
+<div class="flex justify-between items-start mb-4">
+<h3 class="antonio text-3xl font-bold uppercase">Metropolitan Heatmap</h3>
+<div class="bg-primary px-3 py-1 text-[10px] font-bold uppercase">Live Stream</div>
+</div>
+<div class="flex gap-4">
+<div class="bg-black/50 backdrop-blur-md p-4 flex flex-col">
+<span class="text-[10px] opacity-60 uppercase font-bold">Active Reports</span>
+<span class="text-3xl font-bold antonio">1,482</span>
+</div>
+<div class="bg-black/50 backdrop-blur-md p-4 flex flex-col">
+<span class="text-[10px] opacity-60 uppercase font-bold">Response Time</span>
+<span class="text-3xl font-bold antonio">14m</span>
+</div>
+</div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-4 grid grid-rows-2 gap-6">
+<div class="bg-primary p-8 flex flex-col justify-between">
+<span class="material-symbols-outlined text-5xl">eco</span>
+<div>
+<h4 class="antonio text-3xl font-bold uppercase leading-tight">Environmental Efficiency</h4>
+<p class="text-on-primary/80 mt-2">98.4% Material Recovery Rate across all sectors.</p>
+</div>
+</div>
+<div class="bg-zinc-800 p-8 flex flex-col justify-between">
+<div class="flex justify-between items-center">
+<span class="material-symbols-outlined text-4xl text-secondary">database</span>
+<span class="text-xs antonio font-bold opacity-40">SR-88-DATA</span>
+</div>
+<div>
+<div class="w-full h-1 bg-white/10 mb-2">
+<div class="w-[85%] h-full bg-secondary"></div>
+</div>
+<h4 class="antonio text-xl font-bold uppercase">System Capacity</h4>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 5: Impact (High Contrast Tonal Shift) -->
+<section class="py-32 px-8 bg-surface-container-high">
+<div class="max-w-[1440px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-16">
+<div class="border-l-4 border-primary pl-10 py-4">
+<h3 class="text-6xl antonio font-bold mb-2">420T</h3>
+<p class="antonio uppercase font-bold text-primary tracking-widest text-sm mb-4">Waste diverted</p>
+<p class="text-on-surface-variant font-medium">Metric tons of industrial and residential waste successfully diverted from landfills in Q3.</p>
+</div>
+<div class="border-l-4 border-secondary pl-10 py-4">
+<h3 class="text-6xl antonio font-bold mb-2">12.4m</h3>
+<p class="antonio uppercase font-bold text-secondary tracking-widest text-sm mb-4">Average response</p>
+<p class="text-on-surface-variant font-medium">Drastic reduction in reporting-to-clearing cycles through AI dispatch optimization.</p>
+</div>
+<div class="border-l-4 border-black pl-10 py-4">
+<h3 class="text-6xl antonio font-bold mb-2">89%</h3>
+<p class="antonio uppercase font-bold text-black tracking-widest text-sm mb-4">Public trust</p>
+<p class="text-on-surface-variant font-medium">Verification of successful clean-up initiatives by independent third-party environmental audits.</p>
+</div>
+</div>
+</section>
+<!-- Section 6: Cinematic Banner -->
+<section class="relative h-[870px] flex items-center overflow-hidden">
+<div class="absolute inset-0">
+<img class="w-full h-full object-cover" data-alt="Wide cinematic shot of a modern sustainable city boulevard at dusk with glowing architecture and extremely clean streets" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBi5X4p4Rv_YKMDngl6ojil5dNdlPJ6us3mEG3hYi_9__DXAJAlO6IHfw5Uxbn3HPe5lCziBhYF8vXj3OStzgCSEPIGwb3PHS3MZZ9Od9zqro_ykbfAhSwlKojjaHok9BopJ5xuaZKdxwxYd_d1X69eEyRlIUYV_t6r8CDkMQ0NiAM_qMgNOu7Ra903CE4xLYmflxpNgCq7lu3WbJct6LJ9VWL3b57R8uFS8_AW0_Vkj2DSxrarvt-BcOeIKTMI6eVFzbtTty3eF2I"/>
+<div class="absolute inset-0 bg-black/60 backdrop-brightness-75"></div>
+</div>
+<div class="relative z-10 px-8 w-full">
+<div class="max-w-[1440px] mx-auto">
+<h2 class="text-white text-[12vw] antonio font-bold uppercase leading-[0.8] tracking-tighter">
+                        FROM WASTE<br/>TO WONDER
+                    </h2>
+<div class="mt-12 flex items-center gap-8">
+<div class="h-px flex-grow bg-white/30"></div>
+<button class="bg-white text-black px-10 py-5 antonio font-bold uppercase text-lg hover:bg-primary hover:text-white transition-all">
+                            Join the Initiative
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 7: Categorized Grid -->
+<section class="py-32 px-8 bg-surface">
+<div class="max-w-[1440px] mx-auto">
+<div class="flex justify-between items-baseline mb-16 border-b border-outline-variant pb-8">
+<h2 class="text-5xl antonio font-bold uppercase">Sector Coverage</h2>
+<span class="text-sm font-bold antonio uppercase opacity-40">Universal Urban Access</span>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-px bg-outline-variant">
+<div class="group relative aspect-[4/5] bg-surface-bright overflow-hidden">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-100" data-alt="A clean urban street corner with high-end modern architecture and no litter, bright afternoon lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxbi-EAAE8rq3hXXq4lWRzf5DTm9iSjTzGVTVpdSO1plRGfzc5c3QkY_4BbHki-mZi_E28ykPpbh3HpnIGj6zM-T3NJGySDn6NTcyvEAxTIo5-HpYrP11HUm8cp1TkmHHPHVCxNLo1wSR0YjYovI4Vnv1_wrrpGgJSAM0uyqeXH1jCrAeUw9aAmQ9Og-rG2X4fHuC6W85QSYf8je5OoQ_HcLw4tx2c1cu_jXZM2gSpIvWxw0thQWMwPu4odglnslCP8fgcZ8sNgtY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-10">
+<h3 class="text-white text-4xl antonio font-bold uppercase mb-4">Streets</h3>
+<p class="text-white/70 mb-8 max-w-xs">High-traffic arterial corridors managed with precision logistics.</p>
+<button class="w-fit border border-white/30 text-white px-6 py-2 antonio font-bold uppercase text-xs hover:bg-white hover:text-black transition-all">Deploy Units</button>
+</div>
+</div>
+<div class="group relative aspect-[4/5] bg-surface-bright overflow-hidden">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-100" data-alt="A pristine public plaza with green planters and sustainable recycling stations, soft morning light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpkxxlCIsASAkXnyjXNxQUFL0LsnKRv0_cxmMZeWdXPJeeHIweWfvXpz5zyVOQcg2RVUNuMkDp_rHwui_lKnHPVO54MEmyJs96xWWyiOGeeXH9kG1yNes3sZFBM00K-uHqFu_ebF9xjUMmQYAS72ISKanJ02okGwFZS0jvxrqCKuWM9q00FHVlkT8yHiNzYcHMQtheAVkmQhpIQ7hsL2qxmX9AlzXeets2O_XOFyRfHa95tjGUUQHxZqG-3VFcniofBEmabpiehTk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-10">
+<h3 class="text-white text-4xl antonio font-bold uppercase mb-4">Public Areas</h3>
+<p class="text-white/70 mb-8 max-w-xs">Parks and plazas monitored for community well-being.</p>
+<button class="w-fit border border-white/30 text-white px-6 py-2 antonio font-bold uppercase text-xs hover:bg-white hover:text-black transition-all">View Analytics</button>
+</div>
+</div>
+<div class="group relative aspect-[4/5] bg-surface-bright overflow-hidden">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-100" data-alt="Modern high-density residential buildings with clean pathways and efficient waste sorting infrastructure" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgKMvWIhzjJlrt5YACDMUG3q9nB7SWyOvZZn7jbJBgHZihnDAVmgJjvfIMoMRtpBGg_yeEjU3kvPabNlYZc0vBvj4WO5mn3AgeXofG3Ry7vfYzwaAiyGHnFryN1iCCb7PyqA1RtqXxzxPn10GfPTXYI0AzRISwNO2dS9NTP5XeAV2FIBwlmmFvi0YuL4ugArp3YYAtG6zzH0jxNnZsJda8jR6fh-1XiRE4a9Vj6XByhlCgF-XGh6SRiD98pJlmZrRcA31K5mSAAM4"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-10">
+<h3 class="text-white text-4xl antonio font-bold uppercase mb-4">Residential</h3>
+<p class="text-white/70 mb-8 max-w-xs">Smart collection routes for high-density living zones.</p>
+<button class="w-fit border border-white/30 text-white px-6 py-2 antonio font-bold uppercase text-xs hover:bg-white hover:text-black transition-all">Connect Hub</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Component -->
+<footer class="bg-stone-100 dark:bg-stone-900 border-t border-black/5">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 px-12 py-24 max-w-[1440px] mx-auto">
+<div class="col-span-1 lg:col-span-1">
+<div class="text-xl font-bold tracking-tighter uppercase text-black dark:text-white antonio mb-8">
+                    STRATA GARBAGE
+                </div>
+<p class="text-black/60 dark:text-white/40 text-sm max-w-xs leading-relaxed">
+                    Developing the next generation of civic infrastructure through neural-mapped sanitation networks.
+                </p>
+</div>
+<div class="flex flex-col gap-4">
+<h5 class="text-[10px] font-bold uppercase antonio tracking-widest text-primary mb-4">Core Systems</h5>
+<a class="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-sm" href="#">Infrastructure</a>
+<a class="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-sm" href="#">Real-time Data</a>
+<a class="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-sm" href="#">API Docs</a>
+</div>
+<div class="flex flex-col gap-4">
+<h5 class="text-[10px] font-bold uppercase antonio tracking-widest text-primary mb-4">Impact Layer</h5>
+<a class="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-sm" href="#">Environmental Impact</a>
+<a class="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-sm" href="#">System Status</a>
+<a class="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors text-sm" href="#">Privacy Policy</a>
+</div>
+<div class="flex flex-col gap-6">
+<h5 class="text-[10px] font-bold uppercase antonio tracking-widest text-primary mb-4">Command Terminal</h5>
+<div class="relative group">
+<input class="bg-transparent border-b border-black/10 dark:border-white/10 w-full py-2 text-xs focus:ring-0 focus:border-primary outline-none transition-all uppercase antonio" placeholder="NETWORK UPDATES" type="email"/>
+<button class="absolute right-0 top-1/2 -translate-y-1/2">
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<div class="px-12 py-8 border-t border-black/5 flex flex-col md:flex-row justify-between items-center gap-4">
+<p class="text-[10px] font-bold uppercase antonio tracking-[0.2em] text-black/40 dark:text-white/40">
+                © 2024 STRATA GARBAGE. HIGH-PERFORMANCE CIVIC INFRASTRUCTURE.
+            </p>
+<div class="flex gap-8">
+<span class="text-[10px] font-bold uppercase antonio tracking-widest opacity-30">Status: Operational</span>
+<span class="text-[10px] font-bold uppercase antonio tracking-widest opacity-30">Network: Global-Core</span>
+</div>
+</div>
+</footer>
+</body></html>
