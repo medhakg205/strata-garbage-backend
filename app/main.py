@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from app.ai import predict_image
 from supabase import create_client
 import os
 from dotenv import load_dotenv
@@ -45,8 +46,11 @@ async def create_report(
     file: UploadFile = File(...)
 ):
     # Placeholder AI (Phase 3 will replace this)
-    garbage_level = "high"
-    priority_score = 11
+    file_bytes = await file.read()
+    garbage_level, message = predict_image(file_bytes)
+
+    if garbage_level is None:
+        raise HTTPException(status_code=400, detail=message)
 
     data = {
         "user_id": None,
