@@ -1,3 +1,5 @@
+auth.py
+
 import os
 from pathlib import Path
 from fastapi import Depends, HTTPException, status
@@ -16,64 +18,39 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 if not all([SUPABASE_URL, SUPABASE_ANON_KEY]):
-    print(f"❌ AUTH ERROR: Missing Supabase variables in {BASE_DIR / '.env'}")
+print(f"❌ AUTH ERROR: Missing Supabase variables in {BASE_DIR / '.env'}")
 else:
-    print("✅ Auth service initialized.")
+print("✅ Auth service initialized.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+
 async def get_current_user(credentials=Depends(security)):
-    """
-    Verifies Supabase JWT token, fetches user from public.users table.
-    Returns: {id, email, role} - only for 'collector'/'admin' roles.
-    """
-    token = credentials.credentials
+"""
+Verifies Supabase token, then fetches the user's role from 'public.users'.
+Returns a dict: {id, email, role}
+"""
+token = credentials.credentials
 
-    try:
-        # 1️⃣ Verify JWT token with Supabase Auth
-        auth_resp = supabase.auth.get_user(token)
-        if not auth_resp.user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
-                detail="Invalid or expired token"
-            )
-        
-        user_id = auth_resp.user.id
+try:
+# 1️⃣ Verify token
+auth_resp = supabase.auth.get_user(token)
+user = auth_resp.user
+if not user:
+raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
-        # 2️⃣ Fetch profile from public.users table (FIXED SYNTAX)
-        resp = (
-            supabase.table("users")
-            .select("id, email, role")
-            .eq("id", user_id)
-            .single()
-            .execute()
-        )
-        
-        db_user = resp.data
-        if not db_user:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, 
-                detail="User profile not found"
-            )
+# 2️⃣ Fetch role from database
+resp = supabase.table("users").select("*").eq("id", user.id).single().execute()
+db_user = resp.data
+if not db_user:
+raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not found in database")
 
-        # 3️⃣ Enforce collector/admin role
-        if db_user["role"] not in ["collector", "admin"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, 
-                detail="Collector or Admin access required"
-            )
+return {
+"id": user.id,
+"email": user.email,
+"role": db_user["role"] # use the role stored in your users table
+}
 
-        return {
-            "id": db_user["id"],
-            "email": db_user["email"],
-            "role": db_user["role"]
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ AUTH ERROR: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Authentication failed"
-        )
+except Exception as e:
+print(f"❌ AUTH ERROR: {str(e)}")
+raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Authentication failed: {str(e)}"
