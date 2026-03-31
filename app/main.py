@@ -49,7 +49,7 @@ async def create_report(
     # current_user=Depends(get_current_user)  # ✅ COMMENTED OUT
 ):
     # ✅ DUMMY USER FOR TESTING
-    current_user = {"id": "test-citizen", "role": "user"}
+    current_user = {"id": None, "role": "user"}
     
     file_content = await file.read()
 
