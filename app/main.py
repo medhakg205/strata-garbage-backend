@@ -1,6 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict
 from pydantic import BaseModel
 import os
@@ -63,7 +63,6 @@ async def health():
     return {"status": "OK"}
 
 # --- CREATE REPORT ---
-# --- CREATE REPORT ---
 @app.post("/reports/", response_model=ReportResponse, status_code=201)
 async def create_report(
     lat: float = Form(...),
@@ -81,28 +80,41 @@ async def create_report(
         raise HTTPException(status_code=400, detail=message)
 
     # 🔍 CHECK EXISTING REPORT (Using Distance-based RPC)
-    # This calls the SQL function we created above
+    # Using 25.0 meters to account for GPS drift
     existing = supabase.rpc(
         "get_nearby_garbage_report", 
-        {"scan_lat": lat, "scan_lng": lng, "dist_threshold_meters": 10.0}
+        {"scan_lat": lat, "scan_lng": lng, "dist_threshold_meters": 25.0}
     ).execute()
 
     if existing.data:
         report = existing.data[0]
 
+        # 🕒 Calculate TRUE pending minutes from the first report (opened_at)
+        # Fallback to reported_at if opened_at doesn't exist yet
+        opened_at_str = report.get("opened_at") or report.get("reported_at")
+        opened_at_dt = datetime.fromisoformat(opened_at_str.replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        
+        duration = now - opened_at_dt
+        actual_pending_minutes = int(duration.total_seconds() / 60)
+
+        # 🔢 Increment complaint count
         new_count = (report.get("complaint_count") or 1) + 1
 
+        # 📈 Calculate priority using real time and new count
         new_priority = compute_priority(
             report["garbage_level"],
             new_count,
-            report.get("pending_minutes", 0)
+            actual_pending_minutes
         )
 
         supabase.table("garbage_reports") \
             .update({
                 "complaint_count": new_count,
+                "complaint_frequency": new_count,
                 "priority_score": new_priority,
-                "reported_at": datetime.utcnow().isoformat()
+                "pending_minutes": actual_pending_minutes,
+                "reported_at": now.isoformat()
             }) \
             .eq("id", report["id"]) \
             .execute()
@@ -112,6 +124,8 @@ async def create_report(
 
     else:
         # 🆕 NEW REPORT
+        now_iso = datetime.now(timezone.utc).isoformat()
+        
         priority_score = compute_priority(
             garbage_level,
             complaint_count=1,
@@ -129,7 +143,9 @@ async def create_report(
             "priority_score": priority_score,
             "complaint_frequency": 1,
             "complaint_count": 1,
-            "reported_at": datetime.utcnow().isoformat()
+            "pending_minutes": 0,
+            "opened_at": now_iso,
+            "reported_at": now_iso
         }
 
         resp = supabase.table("garbage_reports").insert(data).execute()
