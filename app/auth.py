@@ -9,12 +9,13 @@ load_dotenv()
 security = HTTPBearer()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # service role key
 
-if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+
+if not SUPABASE_URL or not SUPABASE_KEY:
     raise Exception("Missing Supabase auth env variables")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 async def get_current_user(credentials=Depends(security)):
