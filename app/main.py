@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 from typing import List, Dict, Any
 from pydantic import BaseModel
+from auth import get_current_user  # ✅ NEW IMPORT
 
 load_dotenv()
 app = FastAPI(title="Garbage Backend")
@@ -70,8 +71,15 @@ async def get_reports():
     resp = supabase.table("garbage_reports").select("id, lat, lng, garbage_level, priority_score").execute()
     return resp.data or []
 
+@app.post("/auth/login")  # ✅ NEW: Simple login endpoint
+async def login(email: str = Form(...), password: str = Form(...)):
+    resp = supabase.auth.signInWithPassword({"email": email, "password": password})
+    if resp.user:
+        return {"access_token": resp.session.access_token}
+    raise HTTPException(401, "Invalid credentials")
+
 @app.get("/optimize-route/")
-async def optimize_route():
+async def optimize_route(current_user: dict = Depends(get_current_user)):  # ✅ PROTECTED
     # 🚀 NEW: Optimal high-priority route for truck GPS
     reports = supabase.table("garbage_reports") \
         .select("*") \
@@ -89,9 +97,9 @@ async def optimize_route():
     total_distance = len(leaflet_coords) * 2.5  # ~2.5km avg stop
     total_duration = len(leaflet_coords) * 8     # ~8 min/stop
     
-    # Insert route into DB
+    # Insert route into DB - NOW with real collector_id ✅
     supabase.table("routes").insert({
-        "collector_id": None,
+        "collector_id": current_user["id"],  # ✅ Real authenticated user
         "report_ids": [r["id"] for r in reports],
         "optimized_path": leaflet_coords
     }).execute()
