@@ -13,14 +13,14 @@ function Analytics() {
 
   const BASE_URL = "https://strata-garbage-backend.onrender.com";
   // ✅ Replace with real collector token later
-  const token = "eyJhbGciOiJFUzI1NiIsImtpZCI6IjM5YmYwZWJlLTZmMzUtNDM5Yi05ZGNkLTJmOTgxYjA2MjNlYiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2VjbHZtaWtscWhzbHB1ZHh3d2d3LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJhYjM1MDVmMC04ZmNjLTRlN2MtYjgyYi0yZDM5NDA5Yzg2YzUiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc0ODYwMDQ5LCJpYXQiOjE3NzQ4NTY0NDksImVtYWlsIjoiY29sbGVjdG9yMUBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlfSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc3NDg1NjQ0OX1dLCJzZXNzaW9uX2lkIjoiYWVlMTlhY2MtYTY5NS00NWM3LWI0MTgtNjllYTJjMGY0YmIwIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.puQgOVqFfyq46_qYIq2wpm07wLyX8h7YeGP_E7WoYFXsvtbp2n8GXogWbMt5ptU0ijVRIlGQWKID-LYNzKdBaw";
+  const token = "eyJhbGciOiJFUzI1NiIsImtpZCI6IjM5YmYwZWJlLTZmMzUtNDM5Yi05ZGNkLTJmOTgxYjA2MjNlYiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2VjbHZtaWtscWhzbHB1ZHh3d2d3LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJhYjM1MDVmMC04ZmNjLTRlN2MtYjgyYi0yZDM5NDA5Yzg2YzUiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc0OTU5Nzk4LCJpYXQiOjE3NzQ5NTYxOTgsImVtYWlsIjoiY29sbGVjdG9yMUBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlfSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc3NDk1NjE5OH1dLCJzZXNzaW9uX2lkIjoiZmQ1NTFjZTktZmM3My00MDIxLTljZDgtMTE3ZDBjMjgxYzg5IiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.g3KmXg6rZIAdhx8VUcvzOhCqZv5sVV8eU8vYgWBPduZ5yeNk3COr3oe_5Cd9NlJebbNDlpF9tugBLrBAf8ymcg";
 
   useEffect(() => {
     const fetchReports = async () => {
       try {
         const res = await fetch(`${BASE_URL}/reports/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  headers: { Authorization: `Bearer ${token}` },
+});
         const data = await res.json();
         const reportsArray = Array.isArray(data) ? data : data.reports || [];
         
@@ -101,7 +101,8 @@ function Analytics() {
              {/* High Priority Bar */}
              <div 
                className="h-full bg-error transition-all duration-1000 group relative flex items-center justify-center overflow-hidden" 
-               style={{ width: `${reportStats.total === 0 ? 33 : (reportStats.high / reportStats.total) * 100}%` }}
+              // In Analytics.js, replace the style props:
+style={{ width: `${reportStats.total === 0 ? 33 : (reportStats.high / reportStats.total) * 100}%` }}
              >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
                 {reportStats.high > 0 && <span className="antonio text-white font-bold relative z-10 hidden sm:block">CRITICAL ({reportStats.high})</span>}
@@ -109,7 +110,8 @@ function Analytics() {
              {/* Medium Priority Bar */}
              <div 
                className="h-full bg-tertiary transition-all duration-1000 group relative flex items-center justify-center overflow-hidden" 
-               style={{ width: `${reportStats.total === 0 ? 33 : (reportStats.medium / reportStats.total) * 100}%` }}
+               // In Analytics.js, replace the style props:
+style={{ width: `${reportStats.total === 0 ? 33 : (reportStats.high / reportStats.total) * 100}%` }}
              >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
                 {reportStats.medium > 0 && <span className="antonio text-white font-bold relative z-10 hidden sm:block">WARNING ({reportStats.medium})</span>}
@@ -117,7 +119,8 @@ function Analytics() {
              {/* Low Priority Bar */}
              <div 
                className="h-full bg-primary transition-all duration-1000 group relative flex items-center justify-center overflow-hidden" 
-               style={{ width: `${reportStats.total === 0 ? 34 : (reportStats.low / reportStats.total) * 100}%` }}
+              // In Analytics.js, replace the style props:
+style={{ width: `${reportStats.total === 0 ? 33 : (reportStats.high / reportStats.total) * 100}%` }}
              >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
                 {reportStats.low > 0 && <span className="antonio text-white font-bold relative z-10 hidden sm:block">NOMINAL ({reportStats.low})</span>}

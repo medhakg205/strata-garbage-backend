@@ -1,4 +1,21 @@
 import React, { useEffect, useState } from "react";
+import { 
+  MapContainer, 
+  TileLayer, 
+  Polyline, 
+  Marker, 
+  Popup 
+} from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix default markers
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 function Authority() {
   const [reports, setReports] = useState([]);
@@ -7,8 +24,8 @@ function Authority() {
 
   const BASE_URL = "https://strata-garbage-backend.onrender.com";
 
-  // ✅ Collector token (works in Postman)
-  const token = "eyJhbGciOiJFUzI1NiIsImtpZCI6IjM5YmYwZWJlLTZmMzUtNDM5Yi05ZGNkLTJmOTgxYjA2MjNlYiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2VjbHZtaWtscWhzbHB1ZHh3d2d3LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJhYjM1MDVmMC04ZmNjLTRlN2MtYjgyYi0yZDM5NDA5Yzg2YzUiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc0ODYwMDQ5LCJpYXQiOjE3NzQ4NTY0NDksImVtYWlsIjoiY29sbGVjdG9yMUBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlfSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc3NDg1NjQ0OX1dLCJzZXNzaW9uX2lkIjoiYWVlMTlhY2MtYTY5NS00NWM3LWI0MTgtNjllYTJjMGY0YmIwIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.puQgOVqFfyq46_qYIq2wpm07wLyX8h7YeGP_E7WoYFXsvtbp2n8GXogWbMt5ptU0ijVRIlGQWKID-LYNzKdBaw";
+  // Since auth bypassed, no token needed
+  const token = "";
 
   // Fetch all active reports on mount
   useEffect(() => {
@@ -83,7 +100,7 @@ function Authority() {
               className="bg-black text-white px-10 py-5 antonio font-bold uppercase text-lg hover:bg-secondary hover:text-white transition-all w-full md:w-auto active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 border-none"
               onClick={handleOptimize}
               disabled={loading}
-              style={{ borderRadius: "0" }} // Strictly enforcing the zero-border-radius design spec
+              style={{ borderRadius: "0" }}
             >
               {loading ? (
                 <><span className="material-symbols-outlined text-xl animate-spin">sync</span> PROCESSING VECTOR...</>
@@ -94,37 +111,93 @@ function Authority() {
           </div>
         </div>
 
-        {/* Optimized Route Display */}
+        {/* 🚀 NEW LEAFLET MAP + ROUTE VISUALIZATION */}
         {route && (
-          <div className="mb-24 animate-slide-up">
-            <div className="flex justify-between items-end border-b-2 border-outline-variant pb-6 mb-8">
-               <h3 className="text-4xl antonio font-bold uppercase">Optimal Vector</h3>
-               <span className="text-sm font-bold antonio uppercase bg-surface-container-highest px-4 py-2 border border-outline-variant tracking-wider">
-                 Total Stops: <span className="text-secondary ml-2 text-xl">{route.total_spots}</span>
-               </span>
+          <div className="mb-24 space-y-8">
+            {/* Header */}
+            <div className="flex justify-between items-end border-b-2 border-outline-variant pb-6">
+              <h3 className="text-4xl antonio font-bold uppercase">Optimal Collection Route</h3>
+              <div className="text-right">
+                <span className="text-sm font-bold antonio uppercase bg-surface-container-highest px-4 py-2 border border-outline-variant tracking-wider block mb-1">
+                  {route.total_spots} Stops
+                </span>
+                <span className="text-xs text-secondary tracking-wider">
+                  {route.distance_km} • {route.duration_min}
+                </span>
+              </div>
             </div>
             
-            {/* Using a 1px gap on a dark background to create 1px borders seamlessly */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-outline-variant">
-              {route.optimized_path?.map((coord, index) => (
-                <div key={index} className="bg-surface p-8 hover:bg-surface-container-low transition-colors group">
-                  <div className="flex justify-between items-start mb-12">
-                     <span className="text-6xl font-bold antonio text-secondary/20 group-hover:text-secondary transition-colors leading-none">
-                       {String(index + 1).padStart(2, '0')}
-                     </span>
-                     <span className="material-symbols-outlined text-on-surface-variant group-hover:text-secondary opacity-50 group-hover:opacity-100 transition-opacity">
-                       location_on
-                     </span>
+            {/* INTERACTIVE MAP */}
+            <div className="bg-surface-container-low p-6 rounded-xl shadow-2xl border border-outline-variant/50">
+              <MapContainer 
+                center={route.path[0] || [13.08, 80.27]} 
+                zoom={11} 
+                style={{ height: '480px', borderRadius: '12px', width: '100%' }}
+                className="shadow-inner"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                
+                {/* OPTIMIZED ROUTE - Thick red polyline */}
+                {route.path && route.path.length > 1 && (
+                  <Polyline
+                    positions={route.path}
+                    pathOptions={{
+                      color: '#ef4444',      // Primary red
+                      weight: 8,             // Thick line
+                      opacity: 0.9,
+                      dashArray: '10, 10'    // Dashed for style
+                    }}
+                  />
+                )}
+                
+                {/* TRUCK STOPS - Numbered markers */}
+                {route.path?.map((coord, index) => (
+                  <Marker key={index} position={coord}>
+                    <Popup>
+                      <div className="font-bold antonio text-lg mb-2">
+                        Stop {index + 1}/{route.total_spots}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Lat:</strong> {coord[0].toFixed(5)}<br/>
+                        <strong>Lng:</strong> {coord[1].toFixed(5)}
+                      </div>
+                      <div className="mt-2 p-2 bg-primary/10 rounded text-xs">
+                        Priority Collection Node
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            </div>
+            
+            {/* Waypoint Summary Cards */}
+            <div className="text-center">
+              <p className="text-on-surface-variant text-sm uppercase tracking-wider mb-4">
+                Route Summary - High Priority Optimized
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-outline-variant rounded-xl overflow-hidden shadow-lg">
+                {route.path?.slice(0, 4).map((coord, index) => (
+                  <div key={index} className="bg-surface p-6 hover:bg-surface-container-low transition-all group min-h-[140px]">
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="text-4xl font-bold antonio text-secondary/30 group-hover:text-secondary transition-all">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <span className="material-symbols-outlined text-primary text-2xl">location_on</span>
+                    </div>
+                    <div>
+                      <h5 className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest mb-1">Priority Node</h5>
+                      <p className="text-xl antonio font-bold leading-tight">
+                        {coord[0]?.toFixed(4)}
+                        <br />
+                        <span className="text-on-surface-variant">{coord[1]?.toFixed(4)}</span>
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Waypoint</h4>
-                    <p className="text-2xl antonio font-bold text-on-surface">
-                       {coord[1].toFixed(4)}<br/>
-                       <span className="text-on-surface-variant/70">{coord[0].toFixed(4)}</span>
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -161,8 +234,6 @@ function Authority() {
                  const isHigh = lvl === "high";
                  const isMedium = lvl === "medium";
                  
-                 // Apply functional brutalism colors based on priority severity
-                 // Using native tailwind classes from the Design System configuration
                  const levelStyles = isHigh 
                     ? "bg-error text-on-error" 
                     : isMedium 
@@ -171,7 +242,6 @@ function Authority() {
                  
                  return (
                    <div key={r.id} className="bg-surface p-8 hover:bg-surface-container-highest transition-colors flex flex-col justify-between aspect-square group relative overflow-hidden">
-                     {/* Decorative subtle pulse if high priority */}
                      {isHigh && <div className="absolute inset-0 bg-error/5 group-hover:bg-error/10 animate-pulse pointer-events-none"></div>}
                      
                      <div className="relative z-10 flex justify-between items-start mb-8">
@@ -187,8 +257,8 @@ function Authority() {
                          Geospatial Anchor
                        </p>
                        <p className="text-3xl md:text-4xl antonio font-bold text-on-surface group-hover:text-black transition-colors leading-[1]">
-                         {r.location?.lat?.toFixed(5)}<br/>
-                         {r.location?.lng?.toFixed(5)}
+                         {r.lat?.toFixed(5)}<br/>
+{r.lng?.toFixed(5)}
                        </p>
                      </div>
                    </div>
