@@ -12,7 +12,7 @@ from app.auth import get_current_user
 from app.utils import get_distance_matrix
 
 # --- INIT ---
-load_dotenv()  # works locally, ignored on Render
+load_dotenv()
 
 app = FastAPI(title="Garbage Backend")
 
@@ -26,12 +26,29 @@ app.add_middleware(
 
 # --- SUPABASE ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # service role key preferred
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise Exception("Missing Supabase environment variables")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# --- PRIORITY FUNCTION ---
+def compute_priority(level, complaint_count, pending_minutes):
+    level_score = {
+        "low": 1,
+        "medium": 2,
+        "high": 3
+    }[level]
+
+    # cap time to prevent runaway growth
+    time_component = min(pending_minutes or 0, 120)
+
+    return (
+        3 * level_score +
+        2 * complaint_count +
+        time_component
+    )
 
 # --- MODELS ---
 class ReportResponse(BaseModel):
@@ -52,34 +69,72 @@ async def create_report(
     lng: float = Form(...),
     file: UploadFile = File(...)
 ):
+    # 🔧 normalize coords (prevents float mismatch)
+    lat = round(lat, 5)
+    lng = round(lng, 5)
+
     file_bytes = await file.read()
     garbage_level, message = predict_image(file_bytes)
 
     if garbage_level is None:
         raise HTTPException(status_code=400, detail=message)
 
-    # ✅ FIX: define this
-    priority_score = {
-        "low": 1,
-        "medium": 2,
-        "high": 3
-    }[garbage_level]
+    # 🔍 CHECK EXISTING REPORT
+    existing = supabase.table("garbage_reports") \
+        .select("*") \
+        .eq("lat", lat) \
+        .eq("lng", lng) \
+        .neq("status", "completed") \
+        .limit(1) \
+        .execute()
 
-    data = {
-        "user_id": None,
-        "image_url": "test.jpg",
-        "location": f"SRID=4326;POINT({lng} {lat})",
-        "lat": lat,
-        "lng": lng,
-        "garbage_level": garbage_level,
-        "status": "pending",
-        "priority_score": priority_score,
-        "complaint_frequency": 1,
-        "reported_at": datetime.utcnow().isoformat()
-    }
+    if existing.data:
+        report = existing.data[0]
 
-    resp = supabase.table("garbage_reports").insert(data).execute()
-    report_id = resp.data[0]["id"]
+        new_count = (report.get("complaint_count") or 1) + 1
+
+        new_priority = compute_priority(
+            report["garbage_level"],
+            new_count,
+            report.get("pending_minutes", 0)
+        )
+
+        supabase.table("garbage_reports") \
+            .update({
+                "complaint_count": new_count,
+                "priority_score": new_priority,
+                "reported_at": datetime.utcnow().isoformat()
+            }) \
+            .eq("id", report["id"]) \
+            .execute()
+
+        report_id = report["id"]
+        priority_score = new_priority
+
+    else:
+        # 🆕 NEW REPORT
+        priority_score = compute_priority(
+            garbage_level,
+            complaint_count=1,
+            pending_minutes=0
+        )
+
+        data = {
+            "user_id": None,
+            "image_url": "test.jpg",
+            "location": f"SRID=4326;POINT({lng} {lat})",
+            "lat": lat,
+            "lng": lng,
+            "garbage_level": garbage_level,
+            "status": "pending",
+            "priority_score": priority_score,
+            "complaint_frequency": 1,
+            "complaint_count": 1,
+            "reported_at": datetime.utcnow().isoformat()
+        }
+
+        resp = supabase.table("garbage_reports").insert(data).execute()
+        report_id = resp.data[0]["id"]
 
     return ReportResponse(
         id=report_id,
