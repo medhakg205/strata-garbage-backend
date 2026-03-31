@@ -1,18 +1,19 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from app.ai import predict_image
-from supabase import create_client
-import os
-from dotenv import load_dotenv
 from datetime import datetime
 from typing import List, Dict
 from pydantic import BaseModel
+import os
+from dotenv import load_dotenv
+from supabase import create_client, Client
 
+from app.ai import predict_image
 from app.auth import get_current_user
 from app.utils import get_distance_matrix
 
 # --- INIT ---
-load_dotenv()
+load_dotenv()  # works locally, ignored on Render
+
 app = FastAPI(title="Garbage Backend")
 
 app.add_middleware(
@@ -20,12 +21,17 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
+# --- SUPABASE ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # service role key preferred
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise Exception("Missing Supabase environment variables")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- MODELS ---
 class ReportResponse(BaseModel):
@@ -34,23 +40,30 @@ class ReportResponse(BaseModel):
     location: Dict[str, float]
     garbage_level: str
 
-# --- ROUTES ---
+# --- HEALTH CHECK ---
 @app.get("/health")
 async def health():
-    return {"status": "OK", "supabase": bool(supabase)}
+    return {"status": "OK"}
 
+# --- CREATE REPORT ---
 @app.post("/reports/", response_model=ReportResponse, status_code=201)
 async def create_report(
     lat: float = Form(...),
     lng: float = Form(...),
     file: UploadFile = File(...)
 ):
-    # Placeholder AI (Phase 3 will replace this)
     file_bytes = await file.read()
     garbage_level, message = predict_image(file_bytes)
 
     if garbage_level is None:
         raise HTTPException(status_code=400, detail=message)
+
+    # ✅ FIX: define this
+    priority_score = {
+        "low": 1,
+        "medium": 2,
+        "high": 3
+    }[garbage_level]
 
     data = {
         "user_id": None,
@@ -75,6 +88,7 @@ async def create_report(
         garbage_level=garbage_level
     )
 
+# --- GET REPORTS ---
 @app.get("/reports/")
 async def get_reports():
     resp = supabase.table("garbage_reports") \
@@ -83,15 +97,13 @@ async def get_reports():
 
     return resp.data or []
 
-# 🚀 PHASE 2: REAL ROUTE OPTIMIZATION
+# --- ROUTE OPTIMIZATION (AUTH PROTECTED) ---
 @app.get("/optimize-route/")
 async def optimize_route(user=Depends(get_current_user)):
 
-    # --- AUTH CHECK ---
     if user["role"] != "collector":
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # --- FETCH REPORTS ---
     reports = supabase.table("garbage_reports") \
         .select("*") \
         .neq("status", "completed") \
@@ -102,13 +114,9 @@ async def optimize_route(user=Depends(get_current_user)):
     if not reports:
         return {"path": [], "message": "No reports"}
 
-    # --- COORDINATES (IMPORTANT: [lng, lat]) ---
     coords = [[r["lng"], r["lat"]] for r in reports]
-
-    # --- DISTANCE MATRIX ---
     matrix = get_distance_matrix(coords)
 
-    # --- NEAREST NEIGHBOR ROUTE ---
     n = len(coords)
     visited = [False] * n
     route_indices = [0]
@@ -116,37 +124,28 @@ async def optimize_route(user=Depends(get_current_user)):
 
     for _ in range(n - 1):
         last = route_indices[-1]
-
         next_city = min(
             [i for i in range(n) if not visited[i]],
             key=lambda i: matrix[last][i]
         )
-
         route_indices.append(next_city)
         visited[next_city] = True
 
-    # --- CONVERT BACK TO LEAFLET FORMAT [lat, lng] ---
-    leaflet_coords = [
-        [coords[i][1], coords[i][0]]
-        for i in route_indices
-    ]
+    leaflet_coords = [[coords[i][1], coords[i][0]] for i in route_indices]
 
-    # --- CALCULATE DISTANCE ---
-    total_distance = 0
-    for i in range(len(route_indices) - 1):
-        total_distance += matrix[route_indices[i]][route_indices[i + 1]]
+    total_distance = sum(
+        matrix[route_indices[i]][route_indices[i + 1]]
+        for i in range(len(route_indices) - 1)
+    )
 
-    # --- ESTIMATE TIME ---
-    total_duration = total_distance * 2  # ~30 km/h assumption
+    total_duration = total_distance * 2
 
-    # --- SAVE ROUTE ---
     supabase.table("routes").insert({
         "collector_id": user["id"],
         "report_ids": [reports[i]["id"] for i in route_indices],
         "optimized_path": leaflet_coords
     }).execute()
 
-    # --- RESPONSE ---
     return {
         "path": leaflet_coords,
         "total_spots": len(leaflet_coords),
