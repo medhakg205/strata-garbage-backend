@@ -195,7 +195,7 @@ async def optimize_route(
     # current_user=Depends(get_current_user)  # ✅ COMMENTED OUT
 ):
     # ✅ DUMMY COLLECTOR FOR TESTING
-    current_user = {"id": "test-collector", "role": "collector"}
+    current_user = {"id": None, "role": "collector"}
     
     # Skip role check for testing
     # if current_user.get("role") != "collector":
