@@ -63,6 +63,7 @@ async def health():
     return {"status": "OK"}
 
 # --- CREATE REPORT ---
+# --- CREATE REPORT ---
 @app.post("/reports/", response_model=ReportResponse, status_code=201)
 async def create_report(
     lat: float = Form(...),
@@ -79,14 +80,12 @@ async def create_report(
     if garbage_level is None:
         raise HTTPException(status_code=400, detail=message)
 
-    # 🔍 CHECK EXISTING REPORT
-    existing = supabase.table("garbage_reports") \
-        .select("*") \
-        .eq("lat", lat) \
-        .eq("lng", lng) \
-        .neq("status", "completed") \
-        .limit(1) \
-        .execute()
+    # 🔍 CHECK EXISTING REPORT (Using Distance-based RPC)
+    # This calls the SQL function we created above
+    existing = supabase.rpc(
+        "get_nearby_garbage_report", 
+        {"scan_lat": lat, "scan_lng": lng, "dist_threshold_meters": 10.0}
+    ).execute()
 
     if existing.data:
         report = existing.data[0]
