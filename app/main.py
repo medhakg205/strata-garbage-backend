@@ -103,7 +103,12 @@ async def create_report(
 
     # Case 2: New report → INSERT
     else:
-        priority_score = level_score.get(garbage_level, 0) * 3 + 2
+        hours_since = 0  # New reports = 0 hours
+        priority_score = (
+            level_score.get(garbage_level, 0) * 3 + 
+            2 * 1 +  # 2 * complaint_frequency (starts at 1)
+            1 * hours_since  # 1 * hours
+        )
         data = {
             "user_id": current_user["id"],
             "image_url": image_url,
@@ -190,10 +195,11 @@ async def optimize_route(current_user=Depends(get_current_user)):
         hours_since = pending_minutes / 60
         complaint_count = r.get("complaint_frequency") or 1
 
+        hours_since = (r.get("pending_minutes") or 0) / 60
         priority = (
-            level_score.get(r.get("garbage_level"), 0) * 3 +
-            complaint_count * 2 +
-            int(hours_since)
+            level_score.get(r.get("garbage_level"), 0) * 3 + 
+            2 * (r.get("complaint_frequency") or 1) +  # 2 * complaints
+            1 * int(hours_since)  # ✅ 1 * hours
         )
 
         supabase.table("garbage_reports") \
