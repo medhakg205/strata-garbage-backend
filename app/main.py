@@ -10,7 +10,7 @@ from app.auth import get_current_user
 from fastapi import Depends
 from fastapi import Depends, HTTPException
 from app.auth import get_current_user
-
+from app.utils import get_distance_matrix
 load_dotenv()
 app = FastAPI(title="Garbage Backend")
 
