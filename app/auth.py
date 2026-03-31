@@ -22,12 +22,10 @@ else:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-
 async def get_current_user(credentials=Depends(security)):
     """
     Verifies Supabase JWT token, fetches user from public.users table.
     Returns: {id, email, role} - only for 'collector'/'admin' roles.
-    Raises 401/403 for invalid/unauthorized users.
     """
     token = credentials.credentials
 
@@ -42,12 +40,14 @@ async def get_current_user(credentials=Depends(security)):
         
         user_id = auth_resp.user.id
 
-        # 2️⃣ Fetch profile from YOUR public.users table
-        resp = supabase.table("users") \
-            .select("id, email, role") \
-            .eq("id", user_id) \
-            .single() \
+        # 2️⃣ Fetch profile from public.users table (FIXED SYNTAX)
+        resp = (
+            supabase.table("users")
+            .select("id, email, role")
+            .eq("id", user_id)
+            .single()
             .execute()
+        )
         
         db_user = resp.data
         if not db_user:
@@ -56,14 +56,13 @@ async def get_current_user(credentials=Depends(security)):
                 detail="User profile not found"
             )
 
-        # 3️⃣ Enforce collector/admin role for protected routes
+        # 3️⃣ Enforce collector/admin role
         if db_user["role"] not in ["collector", "admin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
                 detail="Collector or Admin access required"
             )
 
-        # ✅ Return verified user data
         return {
             "id": db_user["id"],
             "email": db_user["email"],
@@ -71,7 +70,6 @@ async def get_current_user(credentials=Depends(security)):
         }
 
     except HTTPException:
-        # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
         print(f"❌ AUTH ERROR: {str(e)}")
