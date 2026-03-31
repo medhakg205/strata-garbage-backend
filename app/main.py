@@ -100,7 +100,7 @@ total_duration = len(leaflet_coords) * 8 # ~8 min/stop
 
 # Insert route into DB
 supabase.table("routes").insert({
-"collector_id": None,
+"collector_id": user["id"],
 "report_ids": [r["id"] for r in reports],
 "optimized_path": leaflet_coords
 }).execute()
