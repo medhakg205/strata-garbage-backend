@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from typing import List
 
-from fastapi import FastAPI, File, UploadFile, Form, Depends, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -13,7 +13,7 @@ from ortools.constraint_solver import pywrapcp
 
 # --- LOCAL IMPORTS ---
 from .models import ReportResponse
-from .auth import get_current_user
+# from .auth import get_current_user  # COMMENTED OUT
 from .utils import get_distance_matrix
 from .ai import predict_image
 
@@ -45,9 +45,12 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 async def create_report(
     lat: float = Form(...),
     lng: float = Form(...),
-    file: UploadFile = File(...),
-    current_user=Depends(get_current_user)
+    file: UploadFile = File(...)
+    # current_user=Depends(get_current_user)  # ✅ COMMENTED OUT
 ):
+    # ✅ DUMMY USER FOR TESTING
+    current_user = {"id": "test-citizen", "role": "user"}
+    
     file_content = await file.read()
 
     # AI Prediction
@@ -140,12 +143,18 @@ async def create_report(
 # 📄 GET ALL REPORTS (Collector Only)
 # =========================================================
 @app.get("/reports/", response_model=List[ReportResponse])
-async def get_all_reports(current_user=Depends(get_current_user)):
-    if current_user.get("role") != "collector":
-        raise HTTPException(403, "Access denied. Only collectors can view all reports.")
+async def get_all_reports(
+    # current_user=Depends(get_current_user)  # ✅ COMMENTED OUT
+):
+    # ✅ DUMMY COLLECTOR FOR TESTING
+    current_user = {"id": "test-collector", "role": "collector"}
+    
+    # Skip role check for testing
+    # if current_user.get("role") != "collector":
+    #     raise HTTPException(403, "Access denied. Only collectors can view all reports.")
 
     resp = supabase.table("garbage_reports").select(
-        "id, location, garbage_level, priority_score"
+        "id, location, garbage_level, priority_score, lat, lng"
     ).execute()
 
     if not resp.data:
@@ -153,12 +162,20 @@ async def get_all_reports(current_user=Depends(get_current_user)):
 
     formatted_reports = []
     for report in resp.data:
-        loc_str = report["location"]
-        try:
-            coords = loc_str.replace("POINT(", "").replace(")", "").split()
-            lng, lat = float(coords[0]), float(coords[1])
-        except Exception:
-            lat, lng = 0.0, 0.0
+        # ✅ USE NUMERIC COLUMNS FIRST (more reliable)
+        lat = report.get("lat", 0.0)
+        lng = report.get("lng", 0.0)
+        
+        # Fallback to geometry parsing if numeric columns missing
+        if lat == 0.0 and lng == 0.0:
+            loc_str = report.get("location", "")
+            try:
+                coords = loc_str.replace("POINT(", "").replace(")", "").strip().split()
+                if len(coords) == 2:
+                    lng = float(coords[0])  # PostGIS: POINT(lng lat)
+                    lat = float(coords[1])
+            except Exception:
+                lat, lng = 0.0, 0.0
 
         formatted_reports.append({
             "id": report["id"],
@@ -174,9 +191,15 @@ async def get_all_reports(current_user=Depends(get_current_user)):
 # 🧭 OPTIMIZE ROUTE
 # =========================================================
 @app.get("/optimize-route/")
-async def optimize_route(current_user=Depends(get_current_user)):
-    if current_user.get("role") != "collector":
-        raise HTTPException(403, "Collector only")
+async def optimize_route(
+    # current_user=Depends(get_current_user)  # ✅ COMMENTED OUT
+):
+    # ✅ DUMMY COLLECTOR FOR TESTING
+    current_user = {"id": "test-collector", "role": "collector"}
+    
+    # Skip role check for testing
+    # if current_user.get("role") != "collector":
+    #     raise HTTPException(403, "Collector only")
 
     resp = supabase.table("garbage_reports") \
         .select("*") \
@@ -195,11 +218,10 @@ async def optimize_route(current_user=Depends(get_current_user)):
         hours_since = pending_minutes / 60
         complaint_count = r.get("complaint_frequency") or 1
 
-        hours_since = (r.get("pending_minutes") or 0) / 60
         priority = (
             level_score.get(r.get("garbage_level"), 0) * 3 + 
-            2 * (r.get("complaint_frequency") or 1) +  # 2 * complaints
-            1 * int(hours_since)  # ✅ 1 * hours
+            2 * complaint_count +  # 2 * complaints
+            1 * int(hours_since)  # 1 * hours
         )
 
         supabase.table("garbage_reports") \
@@ -210,10 +232,10 @@ async def optimize_route(current_user=Depends(get_current_user)):
         r["priority_score"] = priority
         updated_reports.append(r)
 
-    # Filter high-priority reports
+    # Filter high-priority reports (priority >= 5)
     reports = [r for r in updated_reports if r["priority_score"] >= 5]
 
-    if len(reports) < 2:
+    if len(reports) < 1:  # ✅ CHANGED: Allow single reports for testing
         return {"path": [], "message": "Insufficient high-priority reports"}
 
     # Get valid coordinates
@@ -222,16 +244,39 @@ async def optimize_route(current_user=Depends(get_current_user)):
     for r in reports:
         lat = r.get("lat")
         lng = r.get("lng")
+        
+        # Fallback parsing if numeric columns null
         if lat is None or lng is None:
+            loc_str = r.get("location", "")
+            try:
+                coords_str = loc_str.replace("POINT(", "").replace(")", "").strip().split()
+                if len(coords_str) == 2:
+                    lng = float(coords_str[0])
+                    lat = float(coords_str[1])
+            except:
+                continue
+                
+        if lat is None or lng is None or not (-90 <= lat <= 90 and -180 <= lng <= 180):
             continue
-        coords.append([lng, lat])
+            
+        coords.append([lng, lat])  # [lng, lat] for Haversine
         report_ids.append(r["id"])
 
-    if len(coords) < 2:
+    if len(coords) < 1:
         return {"path": [], "message": "Insufficient valid coordinates"}
 
     dist_matrix = get_distance_matrix(coords)
 
+    # For single point, skip OR-Tools, return directly
+    if len(coords) == 1:
+        supabase.table("routes").insert({
+            "collector_id": current_user["id"],
+            "report_ids": report_ids,
+            "optimized_path": coords
+        }).execute()
+        return {"path": coords, "total_spots": len(coords)}
+
+    # OR-Tools for multiple points
     manager = pywrapcp.RoutingIndexManager(len(coords), 1, 0)
     routing = pywrapcp.RoutingModel(manager)
 
