@@ -8,6 +8,8 @@ from typing import List, Dict, Any
 from pydantic import BaseModel
 from app.auth import get_current_user
 from fastapi import Depends
+from fastapi import Depends, HTTPException
+from app.auth import get_current_user
 
 load_dotenv()
 app = FastAPI(title="Garbage Backend")
@@ -72,8 +74,13 @@ async def get_reports():
 resp = supabase.table("garbage_reports").select("id, lat, lng, garbage_level, priority_score").execute()
 return resp.data or []
 
+
+
 @app.get("/optimize-route/")
-async def optimize_route():
+async def optimize_route(user=Depends(get_current_user)):
+
+    if user["role"] != "collector":
+        raise HTTPException(status_code=403, detail="Access denied")
 # 🚀 NEW: Optimal high-priority route for truck GPS
 reports = supabase.table("garbage_reports") \\
 .select("*") \\
