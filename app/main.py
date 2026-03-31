@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 from typing import List, Dict, Any
 from pydantic import BaseModel
+from app.auth import get_current_user
+from fastapi import Depends
 
 load_dotenv()
 app = FastAPI(title="Garbage Backend")
