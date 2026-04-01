@@ -1,50 +1,54 @@
+# ai.py
 from PIL import Image
 import io
 import numpy as np
-import torch
-import torchvision.transforms as transforms
-from torchvision.models import mobilenet_v2
+from ultralytics import YOLO
 
-# Load model once
-model = mobilenet_v2(pretrained=True)
-model.eval()
+# Load YOLOv8-nano model once
+model = YOLO('yolov8n.pt')  # Nano model: small, fast, CPU-friendly
 
-# Remove classifier → keep feature extractor
-feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
-
-# Image transform
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-])
-
-def extract_features(img):
-    img = transform(img).unsqueeze(0)
-    with torch.no_grad():
-        features = feature_extractor(img)
-    return features.flatten().numpy()
+# Define trash-related COCO classes
+TRASH_CLASSES = ['bottle', 'cup', 'bag', 'banana', 'apple', 'orange', 'wine glass']  # add more if needed
 
 def predict_image(file_content: bytes):
+    """
+    Predicts trash severity in an image using YOLOv8-nano.
+    Returns: (severity: str, message: str)
+    """
     try:
+        # Load image
         img = Image.open(io.BytesIO(file_content)).convert("RGB")
+        img_np = np.array(img)
 
-        features = extract_features(img)
+        # Run YOLO detection
+        results = model.predict(img_np, verbose=False)[0]
 
-        # --- Compute "complexity score" ---
-        mean_val = np.mean(features)
-        std_val = np.std(features)
+        # Filter detected trash objects
+        detected_trash = [
+            box for box, cls_id in zip(results.boxes.xyxy, results.boxes.cls)
+            if model.names[int(cls_id)] in TRASH_CLASSES
+        ]
 
-        score = std_val / (mean_val + 1e-5)
-
-        # --- Classification ---
-        if score > 2.5:
-            return "high", "Heavy waste detected 🗑️"
-        elif score > 1.5:
-            return "medium", "Moderate waste detected ⚠️"
-        elif score > 0.8:
-            return "low", "Minor waste detected ℹ️"
-        else:
+        if not detected_trash:
             return None, "Not garbage ❌"
+
+        # Compute number of objects and average box area
+        areas = [(x2 - x1) * (y2 - y1) for x1, y1, x2, y2 in detected_trash]
+        avg_area = np.mean(areas)
+        count = len(detected_trash)
+
+        # Simple thresholds for severity (tune as needed)
+        if count > 5 or avg_area > 5000:
+            severity = "high"
+            msg = "Heavy waste detected 🗑️"
+        elif count > 2 or avg_area > 2000:
+            severity = "medium"
+            msg = "Moderate waste detected ⚠️"
+        else:
+            severity = "low"
+            msg = "Minor waste detected ℹ️"
+
+        return severity, msg
 
     except Exception as e:
         print("AI ERROR:", e)
