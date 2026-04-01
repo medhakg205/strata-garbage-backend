@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
-
+from ortools.constraint_solver import routing_enums_pb2, pywrapcp
 from app.ai import predict_image
 from app.auth import get_current_user
 from app.utils import get_distance_matrix
@@ -170,7 +170,6 @@ async def get_reports():
 # --- ROUTE OPTIMIZATION (AUTH PROTECTED) ---
 @app.get("/optimize-route/")
 async def optimize_route(user=Depends(get_current_user)):
-
     if user["role"] != "collector":
         raise HTTPException(status_code=403, detail="Access denied")
 
@@ -185,31 +184,45 @@ async def optimize_route(user=Depends(get_current_user)):
         return {"path": [], "message": "No reports"}
 
     coords = [[r["lng"], r["lat"]] for r in reports]
-    matrix = get_distance_matrix(coords)
+    matrix = get_distance_matrix(coords)  # Keep your existing function
 
-    n = len(coords)
-    visited = [False] * n
-    route_indices = [0]
-    visited[0] = True
+    # OR-Tools TSP
+    def create_data_model():
+        return {'distance_matrix': [[int(d * 1000) for d in row] for row in matrix],  # Scale to meters (int)
+                'num_vehicles': 1, 'depot': 0}
 
-    for _ in range(n - 1):
-        last = route_indices[-1]
-        next_city = min(
-            [i for i in range(n) if not visited[i]],
-            key=lambda i: matrix[last][i]
-        )
-        route_indices.append(next_city)
-        visited[next_city] = True
+    data = create_data_model()
+    manager = pywrapcp.RoutingIndexManager(len(data['distance_matrix']), data['num_vehicles'], data['depot'])
+    routing = pywrapcp.RoutingModel(manager)
 
-    leaflet_coords = [[coords[i][1], coords[i][0]] for i in route_indices]
+    def distance_callback(from_index, to_index):
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['distance_matrix'][from_node][to_node]
 
-    total_distance = sum(
-        matrix[route_indices[i]][route_indices[i + 1]]
-        for i in range(len(route_indices) - 1)
-    )
+    transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
 
-    total_duration = total_distance * 2
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    solution = routing.SolveWithParameters(search_parameters)
 
+    if not solution:
+        return {"path": [], "message": "No solution found"}
+
+    # Extract route
+    route_indices = []
+    index = routing.Start(0)
+    while not routing.IsEnd(index):
+        route_indices.append(manager.IndexToNode(index))
+        index = solution.Value(routing.NextVar(index))
+
+    leaflet_coords = [[coords[i][1], coords[i][0]] for i in route_indices]  # [lat, lng] for Leaflet
+
+    total_distance = sum(matrix[route_indices[i]][route_indices[i+1]] for i in range(len(route_indices)-1))
+    total_duration = total_distance * 2  # Assuming speed factor
+
+    # Save to routes table
     supabase.table("routes").insert({
         "collector_id": user["id"],
         "report_ids": [reports[i]["id"] for i in route_indices],
