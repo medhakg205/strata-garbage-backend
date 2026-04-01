@@ -10,6 +10,7 @@ from ortools.constraint_solver import routing_enums_pb2, pywrapcp
 from app.ai import predict_image
 from app.auth import get_current_user
 from app.utils import get_distance_matrix
+import uuid  # ✅ added for unique filenames
 
 # --- INIT ---
 load_dotenv()
@@ -41,7 +42,6 @@ def compute_priority(level, complaint_count, pending_minutes):
         "high": 3
     }[level]
 
-    # cap time to prevent runaway growth
     time_component = min(pending_minutes or 0, 120)
 
     return (
@@ -69,18 +69,33 @@ async def create_report(
     lng: float = Form(...),
     file: UploadFile = File(...)
 ):
-    # 🔧 normalize coords (prevents float mismatch)
     lat = round(lat, 5)
     lng = round(lng, 5)
 
     file_bytes = await file.read()
+
+    # ✅ UPLOAD IMAGE TO SUPABASE
+    file_name = f"{uuid.uuid4()}_{file.filename}"
+    file_path = f"images/{file_name}"
+
+    upload_res = supabase.storage.from_("images").upload(
+        file_path,
+        file_bytes,
+        {"content-type": file.content_type}
+    )
+
+    print("UPLOAD RES:", upload_res)
+
+    public_url = supabase.storage.from_("images").get_public_url(file_path)
+    print("IMAGE URL:", public_url)
+
+    # ✅ AI prediction still same
     garbage_level, message = predict_image(file_bytes)
 
     if garbage_level is None:
         raise HTTPException(status_code=400, detail=message)
 
-    # 🔍 CHECK EXISTING REPORT (Using Distance-based RPC)
-    # Using 25.0 meters to account for GPS drift
+    # 🔍 CHECK EXISTING REPORT
     existing = supabase.rpc(
         "get_nearby_garbage_report", 
         {"scan_lat": lat, "scan_lng": lng, "dist_threshold_meters": 0.1}
@@ -89,8 +104,6 @@ async def create_report(
     if existing.data:
         report = existing.data[0]
 
-        # 🕒 Calculate TRUE pending minutes from the first report (opened_at)
-        # Fallback to reported_at if opened_at doesn't exist yet
         opened_at_str = report.get("opened_at") or report.get("reported_at")
         opened_at_dt = datetime.fromisoformat(opened_at_str.replace('Z', '+00:00'))
         now = datetime.now(timezone.utc)
@@ -98,10 +111,8 @@ async def create_report(
         duration = now - opened_at_dt
         actual_pending_minutes = int(duration.total_seconds() / 60)
 
-        # 🔢 Increment complaint count
         new_count = (report.get("complaint_count") or 1) + 1
 
-        # 📈 Calculate priority using real time and new count
         new_priority = compute_priority(
             report["garbage_level"],
             new_count,
@@ -134,7 +145,7 @@ async def create_report(
 
         data = {
             "user_id": None,
-            "image_url": "test.jpg",
+            "image_url": public_url,  # ✅ FIXED (was test.jpg)
             "location": f"SRID=4326;POINT({lng} {lat})",
             "lat": lat,
             "lng": lng,
@@ -167,7 +178,7 @@ async def get_reports():
 
     return resp.data or []
 
-# --- ROUTE OPTIMIZATION (AUTH PROTECTED) ---
+# --- ROUTE OPTIMIZATION ---
 @app.get("/optimize-route/")
 async def optimize_route(user=Depends(get_current_user)):
     if user["role"] != "collector":
@@ -184,21 +195,21 @@ async def optimize_route(user=Depends(get_current_user)):
         return {"path": [], "message": "No reports"}
 
     coords = [[r["lng"], r["lat"]] for r in reports]
-    matrix = get_distance_matrix(coords)  # Keep your existing function
+    matrix = get_distance_matrix(coords)
 
-    # OR-Tools TSP
     def create_data_model():
-        return {'distance_matrix': [[int(d * 1000) for d in row] for row in matrix],  # Scale to meters (int)
-                'num_vehicles': 1, 'depot': 0}
+        return {
+            'distance_matrix': [[int(d * 1000) for d in row] for row in matrix],
+            'num_vehicles': 1,
+            'depot': 0
+        }
 
     data = create_data_model()
     manager = pywrapcp.RoutingIndexManager(len(data['distance_matrix']), data['num_vehicles'], data['depot'])
     routing = pywrapcp.RoutingModel(manager)
 
     def distance_callback(from_index, to_index):
-        from_node = manager.IndexToNode(from_index)
-        to_node = manager.IndexToNode(to_index)
-        return data['distance_matrix'][from_node][to_node]
+        return data['distance_matrix'][manager.IndexToNode(from_index)][manager.IndexToNode(to_index)]
 
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
@@ -210,19 +221,17 @@ async def optimize_route(user=Depends(get_current_user)):
     if not solution:
         return {"path": [], "message": "No solution found"}
 
-    # Extract route
     route_indices = []
     index = routing.Start(0)
     while not routing.IsEnd(index):
         route_indices.append(manager.IndexToNode(index))
         index = solution.Value(routing.NextVar(index))
 
-    leaflet_coords = [[coords[i][1], coords[i][0]] for i in route_indices]  # [lat, lng] for Leaflet
+    leaflet_coords = [[coords[i][1], coords[i][0]] for i in route_indices]
 
     total_distance = sum(matrix[route_indices[i]][route_indices[i+1]] for i in range(len(route_indices)-1))
-    total_duration = total_distance * 2  # Assuming speed factor
+    total_duration = total_distance * 2
 
-    # Save to routes table
     supabase.table("routes").insert({
         "collector_id": user["id"],
         "report_ids": [reports[i]["id"] for i in route_indices],
