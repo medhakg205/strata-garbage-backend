@@ -47,18 +47,20 @@ def predict_image(file_content: bytes):
             return None, "Not garbage ❌"
 
         # --- CLASSIFICATION (AREA DRIVEN) ---
-        if trash_ratio > 0.45 and spread > 0.5:
-            return "high", "Heavy waste detected 🗑️"
+        if clutter_ratio > 0.5:
+            if spread > 0.5:
+                return "high", "Heavy waste detected 🗑️"
+            else:
+                return "medium", "Moderate waste detected ⚠️"
 
-        elif trash_ratio > 0.15:
+        elif clutter_ratio > 0.2:
             return "medium", "Moderate waste detected ⚠️"
 
-        elif trash_ratio > 0.03:
+        elif clutter_ratio > 0.05:
             return "low", "Minor waste detected ℹ️"
 
         else:
             return None, "Not garbage ❌"
-
     except Exception as e:
         print("AI ERROR:", e)
         return None, "Not garbage ❌"
