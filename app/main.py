@@ -83,7 +83,7 @@ async def create_report(
     # Using 25.0 meters to account for GPS drift
     existing = supabase.rpc(
         "get_nearby_garbage_report", 
-        {"scan_lat": lat, "scan_lng": lng, "dist_threshold_meters": 25.0}
+        {"scan_lat": lat, "scan_lng": lng, "dist_threshold_meters": 0.1}
     ).execute()
 
     if existing.data:
