@@ -7,6 +7,6 @@ python-jose[cryptography]==3.3.0
 python-multipart==0.0.12
 python-dotenv==1.0.1
 pytest==8.3.3
-tensorflow-cpu==2.15.0  # CPU-only, stable for 3.11, smaller
+onnxruntime==1.18.0  # Runs TFLite/ONNX models, <50MB
 pillow>=9.0.0
 numpy>=1.21.0
