@@ -7,6 +7,6 @@ python-jose[cryptography]==3.3.0
 python-multipart==0.0.12
 python-dotenv==1.0.1
 pytest==8.3.3
-tensorflow==2.16.1  # Full TF with TFLite
+tensorflow-cpu==2.15.0  # CPU-only, stable for 3.11, smaller
 pillow>=9.0.0
 numpy>=1.21.0
