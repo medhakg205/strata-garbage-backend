@@ -1,43 +1,29 @@
+import numpy as np
+import tflite_runtime.interpreter as tflite
 from PIL import Image
 import io
-import numpy as np
+
+interpreter = tflite.Interpreter(model_path="mobilenet_v2.tflite")
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+WASTE_CLASSES = [0,1,2,3,4,5]  # All classes are waste!
 
 def predict_image(file_content: bytes):
     try:
-        img = Image.open(io.BytesIO(file_content)).convert("RGB")
-        img = img.resize((224, 224))
-        img_array = np.array(img).astype(np.float32)
-
-        gray = img_array.mean(axis=2)
-
-        # --- DETECT DARK OBJECTS (trash candidates) ---
-        mask = gray < 110
-
-        # --- TOTAL AREA ---
-        total_ratio = np.sum(mask) / mask.size
-
-        # --- LARGEST CLUSTER SIZE ---
-        # simple row grouping (lightweight cluster approx)
-        row_sums = np.sum(mask, axis=1)
-        max_cluster = np.max(row_sums) / mask.shape[1]
-
-        # --- FINAL DECISION ---
-        # HIGH → large area + spread
-        if total_ratio > 0.35:
-            return "high", "Heavy waste detected 🗑️"
-
-        # MEDIUM → noticeable cluster
-        elif max_cluster > 0.25:
-            return "medium", "Moderate waste detected ⚠️"
-
-        # LOW → small object 
-        elif total_ratio > 0.02:
-            return "low", "Minor waste detected ℹ️"
-
-        else:
-            return None, "Not garbage ❌"
-
+        img = Image.open(io.BytesIO(file_content)).resize((224, 224)).convert("RGB")
+        img_array = np.expand_dims(np.array(img, dtype=np.float32)/255.0, 0)
+        interpreter.set_tensor(input_details[0]['index'], img_array)
+        interpreter.invoke()
+        probs = interpreter.get_tensor(output_details[0]['index'])[0]
+        top_id = np.argmax(probs)
+        conf = probs[top_id]
+        if conf > 0.6:
+            level = "high" if conf > 0.85 else "medium" if conf > 0.75 else "low"
+            class_names = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
+            return level, f"{class_names[top_id]} waste {level} ({conf:.1%}) 🗑️"
+        return None, "Not garbage ❌"
     except Exception as e:
-        print("AI ERROR:", e)
-        return None, "Not garbage ❌"
-        return None, "Not garbage ❌"
+        print("Error:", e)
+        return None, "Error ❌"
