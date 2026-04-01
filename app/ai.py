@@ -1,70 +1,47 @@
 from PIL import Image
 import io
 import numpy as np
+import torch
+import torchvision.transforms as transforms
+from torchvision.models import mobilenet_v2
+
+# Load model once
+model = mobilenet_v2(pretrained=True)
+model.eval()
+
+# Remove classifier → keep feature extractor
+feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
+
+# Image transform
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+
+def extract_features(img):
+    img = transform(img).unsqueeze(0)
+    with torch.no_grad():
+        features = feature_extractor(img)
+    return features.flatten().numpy()
 
 def predict_image(file_content: bytes):
     try:
         img = Image.open(io.BytesIO(file_content)).convert("RGB")
-        img = img.resize((224, 224))
-        img_array = np.array(img)
 
-        # --- GRAYSCALE ---
-        gray = img_array.mean(axis=2)
+        features = extract_features(img)
 
-        # --- NON-GARBAGE FILTER (NEW) ---
-        blue_ratio = np.sum(img_array[:, :, 2] > 150) / img_array.size
-        green_ratio = np.sum(img_array[:, :, 1] > 120) / img_array.size
+        # --- Compute "complexity score" ---
+        mean_val = np.mean(features)
+        std_val = np.std(features)
 
-        if blue_ratio > 0.3 or green_ratio > 0.3:
-            return None, "Not garbage ❌"
+        score = std_val / (mean_val + 1e-5)
 
-        # --- FEATURE 1: Brightness ---
-        brightness = img_array.mean()
-
-        # --- FEATURE 2: Color variance ---
-        color_variance = img_array.var()
-
-        # --- FEATURE 3: Edge detection ---
-        edges = np.abs(np.diff(gray, axis=0)).mean()
-
-        # --- NEW: Trash Area (IMPORTANT) ---
-        trash_ratio = np.sum(gray < 120) / gray.size
-
-        # --- NEW: Spread ---
-        blocks = np.array_split(gray, 9)
-        spread = np.mean([np.mean(b < 120) for b in blocks])
-
-        # --- STRONG HIGH DETECTION ---
-        if trash_ratio > 0.35 and spread > 0.4:
+        # --- Classification ---
+        if score > 2.5:
             return "high", "Heavy waste detected 🗑️"
-
-        if trash_ratio > 0.5:
-            return "high", "Heavy waste detected 🗑️"
-
-        # --- SCORING ---
-        score = 0
-
-        if brightness < 100:
-            score += 1
-
-        if color_variance > 2000:
-            score += 1
-
-        if edges > 20:
-            score += 1
-
-        if trash_ratio > 0.25:
-            score += 1
-
-        if spread > 0.3:
-            score += 1
-
-        # --- FINAL CLASSIFICATION ---
-        if score >= 4:
-            return "high", "Heavy waste detected 🗑️"
-        elif score >= 2:
+        elif score > 1.5:
             return "medium", "Moderate waste detected ⚠️"
-        elif score >= 1:
+        elif score > 0.8:
             return "low", "Minor waste detected ℹ️"
         else:
             return None, "Not garbage ❌"
