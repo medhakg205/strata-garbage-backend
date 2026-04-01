@@ -5,14 +5,12 @@ import torch
 import torchvision.transforms as transforms
 from torchvision.models import mobilenet_v2
 
-# --- LOAD MODEL ONCE ---
+# Load model once
 model = mobilenet_v2(weights="IMAGENET1K_V1")
 model.eval()
 
-# Remove classifier → feature extractor
 feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
 
-# Transform
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -27,39 +25,35 @@ def extract_features(img):
 
 def predict_image(file_content: bytes):
     try:
-        # --- LOAD IMAGE ---
         img = Image.open(io.BytesIO(file_content)).convert("RGB")
         img = img.resize((224, 224))
         img_array = np.array(img).astype(np.float32)
 
-        # --- 1. DEEP FEATURES (SEMANTIC UNDERSTANDING) ---
+        # --- DEEP FEATURES (only for filtering) ---
         features = extract_features(img)
         deep_score = np.std(features) / (np.mean(features) + 1e-5)
 
-        # --- 2. TRASH AREA ---
+        # --- TRASH AREA ---
         gray = img_array.mean(axis=2)
         trash_mask = gray < 120
         trash_ratio = np.sum(trash_mask) / trash_mask.size
 
-        # --- 3. SPREAD ---
+        # --- SPREAD ---
         blocks = np.array_split(trash_mask, 9)
         spread = np.mean([np.mean(b) for b in blocks])
 
-        # --- 4. FINAL COMBINED SCORE ---
-        score = (
-            deep_score * 2 +
-            trash_ratio * 3 +
-            spread * 2
-        )
+        # --- NON-GARBAGE FILTER (IMPORTANT) ---
+        if deep_score < 0.8 and trash_ratio < 0.1:
+            return None, "Not garbage ❌"
 
-        # --- 5. CLASSIFICATION ---
-        if score > 4:
+        # --- CLASSIFICATION (AREA DRIVEN) ---
+        if trash_ratio > 0.45 and spread > 0.5:
             return "high", "Heavy waste detected 🗑️"
 
-        elif score > 2.5:
+        elif trash_ratio > 0.15:
             return "medium", "Moderate waste detected ⚠️"
 
-        elif score > 1:
+        elif trash_ratio > 0.03:
             return "low", "Minor waste detected ℹ️"
 
         else:
