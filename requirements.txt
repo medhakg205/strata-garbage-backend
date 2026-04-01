@@ -7,7 +7,6 @@ python-jose[cryptography]==3.3.0
 python-multipart==0.0.12
 python-dotenv==1.0.1
 pytest==8.3.3
-torch
-pillow>=9.0.0               # For image loading and processing
-numpy>=1.21.0               # For numeric operations
-torchvision
+tflite-runtime==2.16.0  # Core TFLite interpreter; ~10MB install
+pillow>=9.0.0
+numpy>=1.21.0
