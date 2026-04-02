@@ -30,18 +30,23 @@ def predict_image(file_content: bytes):
 
         features = extract_features(img)
 
-        # --- Compute "complexity score" ---
-        mean_val = np.mean(features)
-        std_val = np.std(features)
+        # --- Compute improved "complexity score" ---
+        # 1. Absolute deviation from mean
+        abs_dev = np.abs(features - np.mean(features))
+        # 2. Mean of deviations
+        score = np.mean(abs_dev)
+        # 3. Optional: normalize to 0–1 (approx)
+        score_norm = score / (np.max(features) - np.min(features) + 1e-5)
 
-        score = std_val / (mean_val + 1e-5)
+        # --- Debug: see real scores ---
+        print(f"DEBUG score: {score:.4f}, normalized: {score_norm:.4f}")
 
-        # --- Classification ---
-        if score > 2.5:
+        # --- Classification thresholds ---
+        if score_norm > 0.25:
             return "high", "Heavy waste detected 🗑️"
-        elif score > 1.5:
+        elif score_norm > 0.15:
             return "medium", "Moderate waste detected ⚠️"
-        elif score > 0.8:
+        elif score_norm > 0.08:
             return "low", "Minor waste detected ℹ️"
         else:
             return None, "Not garbage ❌"
