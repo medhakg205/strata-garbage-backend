@@ -15,42 +15,62 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-# ImageNet indices that relate to waste, clutter, or dirty environments
-# You can expand this list — full list at: https://gist.github.com/yrevar/942d3a0ac09ec9e5eb3a
+# Expanded and corrected waste-related ImageNet classes
 WASTE_CLASSES = {
-    401,  # accordion (clutter)
-    408,  # amphibian
     440,  # beer bottle
     441,  # beer glass
     463,  # bucket
     530,  # garbage truck
     720,  # plastic bag
     728,  # pop bottle
-    737,  # punching bag
-    757,  # rubber eraser
-    790,  # steel drum
+    478,  # carton
+    700,  # paper towel
     822,  # toilet tissue
     849,  # tray
-    897,  # washer
-    # Outdoor/dirty scenes
-    478,  # carton
-    555,  # fire screen
-    569,  # freight car
-    609,  # lawn mower
-    671,  # oil filter
-    700,  # paper towel
+    790,  # steel drum
     753,  # radiator
-    876,  # washer
+    671,  # oil filter
+    569,  # freight car
+    412,  # ashcan / trash can ← KEY ONE
+    436,  # barn (outdoor clutter)
+    468,  # cab (street scene)
+    475,  # car wheel
+    480,  # chain
+    494,  # crate ← KEY ONE
+    519,  # file cabinet
+    532,  # gas pump
+    545,  # dome (industrial)
+    580,  # grille
+    609,  # lawn mower
+    660,  # mixing bowl
+    681,  # oil drum ← KEY ONE
+    703,  # park bench (outdoor)
+    716,  # pickup truck
+    734,  # pot
+    757,  # rubber eraser
+    779,  # screw
+    783,  # shovel ← KEY ONE
+    800,  # ski
+    833,  # traffic cone ← KEY ONE  
+    864,  # tub
+    867,  # typewriter keyboard
+    897,  # washer
+    # Textures that appear in waste scenes
+    992,  # hay (organic waste texture)
 }
 
-# Classes that strongly suggest a CLEAN scene — penalize waste score
+# Classes that strongly suggest clean/natural scenes
 CLEAN_CLASSES = {
-    # nature
-    970, 971, 972, 973, 974, 975, 976, 977, 978, 979, 980,  # various natural scenes
-    # food (plated, clean)
+    # Clean nature
+    970, 971, 972, 973, 974, 975, 976, 977, 978, 979, 980,
+    # Clean food
     924, 925, 926, 927, 928, 929, 930, 931, 932,
-    # interiors
-    560, 762, 587,
+    # Clean interiors / animals
+    560, 762, 587, 
+    # Sky / water
+    978, 979,
+    # People in clean settings
+    200, 201, 202,
 }
 
 def predict_image(file_content: bytes):
@@ -66,35 +86,46 @@ def predict_image(file_content: bytes):
         top10_idx = top10_result.indices.tolist()
         top10_probs = top10_result.values.tolist()
 
-        # Debug — keep this on while tuning
-        print("Top 10 predictions:")
-        for idx, prob in zip(top10_idx, top10_probs):
-            print(f"  Class {idx}: {prob:.4f}")
-
         top1_prob = top10_probs[0]
+        top1_idx = top10_idx[0]
 
-        # Low top-1 confidence = model is confused = likely cluttered/messy scene
+        # --- Score components ---
+
+        # 1. Confusion: model can't identify a clear subject
         confusion_score = 1.0 - top1_prob
 
-        # Explicit waste class hits
-        waste_score = sum(
-            probs[i].item() for i in top10_idx if i in WASTE_CLASSES
-        )
+        # 2. Waste class hits across top 10
+        waste_score = sum(probs[i].item() for i in top10_idx if i in WASTE_CLASSES)
 
-        # Penalize if clean classes dominate
-        clean_score = sum(
-            probs[i].item() for i in top10_idx if i in CLEAN_CLASSES
-        )
+        # 3. Clean class penalty
+        clean_score = sum(probs[i].item() for i in top10_idx if i in CLEAN_CLASSES)
 
-        final_score = (confusion_score * 0.6) + (waste_score * 0.4) - (clean_score * 0.3)
+        # 4. Entropy of top 10 — high entropy = many competing guesses = cluttered scene
+        top10_tensor = torch.tensor(top10_probs)
+        top10_tensor = top10_tensor / top10_tensor.sum()  # renormalize
+        entropy = -torch.sum(top10_tensor * torch.log(top10_tensor + 1e-9)).item()
+        entropy_score = entropy / 2.3  # normalize: log(10)=2.3, so max=1.0
 
-        print(f"confusion={confusion_score:.3f} waste={waste_score:.3f} clean={clean_score:.3f} final={final_score:.3f}")
+        # 5. Hard boost: if top1 class is directly waste-related
+        direct_waste_boost = 0.3 if top1_idx in WASTE_CLASSES else 0.0
 
-        if final_score > 0.75:
+        final_score = (
+            confusion_score  * 0.35 +
+            waste_score      * 0.25 +
+            entropy_score    * 0.30 +
+            direct_waste_boost
+        ) - (clean_score * 0.25)
+
+        print(f"top1_idx={top1_idx} top1_prob={top1_prob:.3f}")
+        print(f"confusion={confusion_score:.3f} waste={waste_score:.3f} "
+              f"clean={clean_score:.3f} entropy={entropy_score:.3f} "
+              f"direct_boost={direct_waste_boost:.1f} final={final_score:.3f}")
+
+        if final_score > 0.65:
             return "high", "Heavy waste detected 🗑️"
-        elif final_score > 0.55:
+        elif final_score > 0.45:
             return "medium", "Moderate waste detected ⚠️"
-        elif final_score > 0.35:
+        elif final_score > 0.28:
             return "low", "Minor waste detected ℹ️"
         else:
             return None, "Not garbage ❌"
